@@ -1,0 +1,166 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Python.Publisher.Subscriber"
+version = "1.0.0"
+description = "A real-time Publisher-Subscriber system using WebSockets"
+readme = "README.md"
+requires-python = ">=3.8"
+license = "MIT"
+authors = [
+    { name = "venantvr", email = "venantvr@gmail.com" }
+]
+maintainers = [
+    { name = "venantvr", email = "venantvr@gmail.com" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Framework :: Flask",
+]
+dependencies = [
+    "Flask==3.0.0",
+    "flask-socketio==5.3.6",
+    "eventlet==0.40.3",
+    "python-socketio[client]==5.10.0",
+    "requests==2.32.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.3",
+    "pytest-mock==3.12.0",
+    "pytest-asyncio==0.21.1",
+    "pytest-watch==4.2.0",
+    "black==24.3.0",
+    "flake8==6.1.0",
+    "mypy==1.8.0",
+    "isort==5.13.2",
+    "ruff==0.1.9",
+    "bandit==1.7.5",
+    "pre-commit==3.6.0",
+    "build==1.0.3",
+    "wheel==0.42.0",
+    "setuptools>=61.0",
+]
+docs = [
+    "sphinx==7.1.0",
+    "sphinx-rtd-theme==1.3.0",
+    "sphinx-autodoc-typehints==1.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/venantvr/Python.Publisher.Subscriber"
+Documentation = "https://python-publisher-subscriber.readthedocs.io"
+Repository = "https://github.com/venantvr/Python.Publisher.Subscriber.git"
+Issues = "https://github.com/venantvr/Python.Publisher.Subscriber/issues"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.scripts]
+pubsub-server = "pubsub_ws:main"
+pubsub-client = "client:main"
+
+[tool.black]
+line-length = 100
+target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_unimported = false
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+check_untyped_defs = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+select = [
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "F", # pyflakes
+    "I", # isort
+    "B", # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = []
+fixable = ["ALL"]
+unfixable = []
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"

@@ -1,0 +1,54 @@
+version: "3.8"
+
+services:
+  pubsub-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: python.publisher.subscriber:latest
+    container_name: pubsub-server
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./pubsub.db:/app/pubsub.db
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:5000/health')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - pubsub-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: pubsub-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./static:/usr/share/nginx/html/static:ro
+    depends_on:
+      - pubsub-server
+    restart: unless-stopped
+    networks:
+      - pubsub-network
+
+networks:
+  pubsub-network:
+    driver: bridge
+
+volumes:
+  pubsub-data:
