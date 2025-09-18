@@ -8,7 +8,7 @@ SOURCES := tests
 help:
 	@echo "Available targets:"
 	@echo "  test      Run tests"
-	@echo "  format    Format code with black and isort"
+	# @echo "  format    Format code with black and isort"
 	@echo "  check     Run format and tests"
 	@echo "  clean     Clean up generated files"
 	@echo "  install   Install dependencies"
@@ -19,12 +19,12 @@ test:
 	$(PYTHON) -m pytest tests/ -v --tb=short
 
 # Code formatting
-format:
-	$(PYTHON) -m black $(SOURCES) tests/
-	$(PYTHON) -m isort $(SOURCES) tests/
+# format:
+#	$(PYTHON) -m black $(SOURCES) tests/
+#	$(PYTHON) -m isort $(SOURCES) tests/
 
 # Combined check
-check: format test
+# check: format test
 
 # Installation
 install:
