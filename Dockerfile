@@ -9,10 +9,13 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY pyproject.toml ./
+# --- CHANGEMENTS CI-DESSOUS ---
+# Copie les fichiers nécessaires à l'installation du package
+COPY pyproject.toml README.md ./
+COPY src ./src
+# --- FIN DES CHANGEMENTS ---
 
-# Install Python dependencies using the toml file
+# Installe le package et ses dépendances
 RUN pip install --no-cache-dir --user .
 
 # Production stage
@@ -29,13 +32,13 @@ WORKDIR /app
 # Copy dependencies from builder
 COPY --from=builder /root/.local /root/.local
 
-# Copy application code
+# Copy application code (on le copie à nouveau pour la version finale)
 COPY src/ ./src/
 COPY static/ ./static/
 COPY migrations/ ./migrations/
 COPY pyproject.toml ./
 
-# Install the package
+# Installe le package en mode éditable
 RUN pip install --no-cache-dir -e .
 
 # Create non-root user
