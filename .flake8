@@ -13,6 +13,7 @@ exclude =
     .tox,
     .eggs,
     *.egg,
+    *.md,
     .mypy_cache,
     .pytest_cache,
     .ruff_cache
