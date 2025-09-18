@@ -3,7 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "Python.Publisher.Subscriber"
+# CORRECTION : Nom du package aligné sur le dépôt
+name = "Python.PubSub.Server"
 version = "1.0.0"
 description = "A real-time Publisher-Subscriber system using WebSockets"
 readme = "README.md"
@@ -32,7 +33,7 @@ dependencies = [
     "Flask==3.0.0",
     "flask-socketio==5.3.6",
     "eventlet==0.40.3",
-    "python-socketio[client]==5.10.0",
+    "python-socketio==5.10.0",
     "requests==2.32.4",
 ]
 
@@ -59,11 +60,11 @@ docs = [
     "sphinx-autodoc-typehints==1.24.0",
 ]
 
+# CORRECTION : Toutes les URLs pointent maintenant vers le bon dépôt
 [project.urls]
-Homepage = "https://github.com/venantvr/Python.Publisher.Subscriber"
-Documentation = "https://python-publisher-subscriber.readthedocs.io"
-Repository = "https://github.com/venantvr/Python.Publisher.Subscriber.git"
-Issues = "https://github.com/venantvr/Python.Publisher.Subscriber/issues"
+Homepage = "https://github.com/venantvr/Python.PubSub.Server"
+Repository = "https://github.com/venantvr/Python.PubSub.Server.git"
+Issues = "https://github.com/venantvr/Python.PubSub.Server/issues"
 
 [tool.setuptools]
 package-dir = { "" = "src" }
@@ -75,7 +76,8 @@ where = ["src"]
 
 [project.scripts]
 pubsub-server = "pubsub_ws:main"
-pubsub-client = "client:main"
+
+# ... Le reste du fichier (outils de formatage, etc.) reste identique ...
 
 [tool.black]
 line-length = 100
@@ -135,13 +137,7 @@ python_functions = ["test_*"]
 line-length = 100
 target-version = "py38"
 select = [
-    "E", # pycodestyle errors
-    "W", # pycodestyle warnings
-    "F", # pyflakes
-    "I", # isort
-    "B", # flake8-bugbear
-    "C4", # flake8-comprehensions
-    "UP", # pyupgrade
+    "E", "W", "F", "I", "B", "C4", "UP",
 ]
 ignore = []
 fixable = ["ALL"]
