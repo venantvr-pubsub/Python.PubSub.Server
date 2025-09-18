@@ -10,10 +10,10 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
-COPY requirements.txt .
+COPY pyproject.toml ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir --user -r requirements.txt
+# Install Python dependencies using the toml file
+RUN pip install --no-cache-dir --user .
 
 # Production stage
 FROM python:3.11-slim
@@ -33,7 +33,7 @@ COPY --from=builder /root/.local /root/.local
 COPY src/ ./src/
 COPY static/ ./static/
 COPY migrations/ ./migrations/
-COPY setup.py pyproject.toml ./
+COPY pyproject.toml ./
 
 # Install the package
 RUN pip install --no-cache-dir -e .
