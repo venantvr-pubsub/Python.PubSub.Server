@@ -1,383 +1,243 @@
-# Python Publisher Subscriber
+# Serveur Pub/Sub WebSocket en Python
 
-<!-- markdownlint-disable MD033 -->
-<div align="center">
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-![Python Version](https://img.shields.io/badge/python-3.8%20%7C%203.9%20%7C%203.10%20%7C%203.11%20%7C%203.12-blue)
-![License](https://img.shields.io/badge/license-MIT-green)
-![Flask](https://img.shields.io/badge/Flask-3.0.0-red)
-![WebSocket](https://img.shields.io/badge/WebSocket-Enabled-brightgreen)
+Un serveur Pub/Sub WebSocket simple, robuste et prêt pour la production, construit avec Flask, Socket.IO et utilisant SQLite pour la persistance des données.
 
-A high-performance, real-time Publisher-Subscriber system built with Flask, Flask-SocketIO, and SQLite.
+## ✨ Fonctionnalités
 
-[Features](#-features) • [Installation](#-installation) •
-[Quick Start](#-quick-start) • [Contributing](#-contributing)
+- 📢 **Diffusion par Sujets (Topics)** : Publiez des messages dans des canaux spécifiques.
+- 📡 **Abonnement en Temps Réel** : Les clients s'abonnent via WebSocket pour recevoir les messages instantanément.
+- 💾 **Persistance des Données** : Utilise SQLite pour sauvegarder les messages, les abonnements des clients et les confirmations de consommation.
+- 🔌 **Double Interface** : Une API HTTP RESTful pour publier des messages et des points d'accès pour le monitoring, et des événements Socket.IO pour la communication
+  temps réel.
+- 📊 **Monitoring Intégré** : Points d'accès API pour lister les clients connectés, l'historique des messages et les événements de consommation.
+- 📝 **Journalisation Complète** : Logging détaillé pour le débogage et le suivi de l'activité du serveur.
+- 🧪 **Suite de Tests Complète** : Tests unitaires et d'intégration utilisant `pytest` pour assurer la fiabilité.
 
-</div>
+## 📦 Installation
 
----
-
-## 🚀 Features
-
-- **Real-time Communication**: WebSocket-based pub/sub messaging with instant delivery
-- **Multiple Topics**: Support for subscribing to multiple topics simultaneously
-- **Persistent Storage**: SQLite database for message history and consumption tracking
-- **Web Interface**: Interactive web client for testing and monitoring
-- **Python Client Library**: Easy-to-use Python client for integration
-- **RESTful API**: HTTP endpoints for publishing messages
-- **Live Monitoring**: Real-time monitoring of connected clients and message consumption
-- **Docker Support**: Ready-to-deploy Docker configuration
-- **Comprehensive Testing**: Extensive test suite with pytest
-
-- **Production Ready**: Health checks, logging, and error handling
-
-## 📋 Requirements
-
-- Python 3.8 or higher
-- pip package manager
-- SQLite3
-
-## 🔧 Installation
-
-### From Source
+### Depuis les sources
 
 ```bash
-# Clone the repository
-git clone https://github.com/venantvr/Python.Publisher.Subscriber.git
-cd Python.Publisher.Subscriber
+git clone https://github.com/votre-repo/Python.PubSub.Server.git
+cd Python.PubSub.Server
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Il est recommandé d'utiliser un environnement virtuel
+python -m venv .venv
+source .venv/bin/activate  # Sur Windows: .venv\Scripts\activate
 
-# Install in development mode
-pip install -r requirements-dev.txt
-pip install -e .
+# Installer les dépendances
+pip install -r requirements.txt
 ```
 
-### Using Docker
+## 🚀 Lancement Rapide
+
+Une fois les dépendances installées, vous pouvez démarrer le serveur :
 
 ```bash
-# Using Docker Compose
-docker-compose up -d
-
-# Or build and run manually
-docker build -t python.publisher.subscriber:latest .
-docker run -p 5000:5000 python.publisher.subscriber:latest
-```
-
-## 🚀 Quick Start
-
-### 1. Start the Server
-
-```bash
-# Run directly
 python src/pubsub_ws.py
 ```
 
-The server will start on `http://localhost:5000`
+Le serveur démarrera et écoutera sur `http://0.0.0.0:5000`. La première fois, il créera et initialisera une base de données SQLite nommée `pubsub.db`.
 
-### 2. Publish Messages
+Vous pouvez accéder à une interface de démonstration simple en ouvrant `http://localhost:5000/client.html` dans votre navigateur.
 
-#### Using curl
+## 📝 Référence de l'API
+
+Le serveur expose à la fois des points d'accès HTTP et des événements WebSocket.
+
+### Points d'accès HTTP
+
+#### `POST /publish`
+
+Publie un message sur un sujet spécifique. Le corps de la requête doit être un JSON.
+
+**Corps JSON :**
+
+```json
+{
+  "topic": "notifications",
+  "message_id": "msg-unique-001",
+  "message": {
+    "type": "alert",
+    "content": "Maintenance système à 22h."
+  },
+  "producer": "admin-script"
+}
+```
+
+- **Succès (200)** : `{"status": "ok"}`
+- **Erreur (400)** : `{"status": "error", "message": "Missing required field"}`
+
+#### `GET /clients`
+
+Retourne la liste de tous les abonnements de clients actuellement actifs.
+
+**Réponse :**
+
+```json
+[
+  {
+    "consumer": "dashboard-ui",
+    "topic": "metrics",
+    "connected_at": 1678886400.123
+  }
+]
+```
+
+#### `GET /messages`
+
+Retourne la liste de tous les messages qui ont été publiés, triés par ordre antéchronologique.
+
+**Réponse :**
+
+```json
+[
+  {
+    "topic": "notifications",
+    "message_id": "msg-unique-001",
+    "message": {
+      "type": "alert",
+      "content": "Maintenance système à 22h."
+    },
+    "producer": "admin-script",
+    "timestamp": 1678886500.456
+  }
+]
+```
+
+#### `GET /consumptions`
+
+Retourne la liste de tous les événements de consommation enregistrés.
+
+**Réponse :**
+
+```json
+[
+  {
+    "consumer": "mobile-app-user-123",
+    "topic": "notifications",
+    "message_id": "msg-unique-001",
+    "message": "{'type': 'alert', 'content': 'Maintenance système à 22h.'}",
+    "timestamp": 1678886505.789
+  }
+]
+```
+
+### Événements WebSocket
+
+Les clients communiquent avec le serveur via un client Socket.IO.
+
+#### Émettre `subscribe`
+
+Un client s'abonne à un ou plusieurs sujets.
+
+```javascript
+// Exemple côté client
+socket.emit('subscribe', {
+  consumer: 'mobile-app-user-123',
+  topics: ['notifications', 'private-messages']
+});
+```
+
+#### Recevoir `message`
+
+Le serveur envoie cet événement aux clients abonnés lorsqu'un nouveau message est publié sur un sujet correspondant.
+
+```javascript
+// Exemple côté client
+socket.on('message', (data) => {
+  console.log(`Nouveau message sur le sujet ${data.topic}:`, data.message);
+
+  // Le client peut ensuite notifier le serveur de la consommation
+  socket.emit('consumed', {
+    consumer: 'mobile-app-user-123',
+    topic: data.topic,
+    message_id: data.message_id,
+    message: data.message
+  });
+});
+```
+
+#### Émettre `consumed`
+
+Un client notifie le serveur qu'il a bien reçu et traité un message.
+
+#### Événement `disconnect`
+
+Géré automatiquement lorsque le client se déconnecte. Le serveur supprime l'abonnement du client de la base de données.
+
+## 🛠️ Développement
+
+### Prérequis
+
+- Python 3.9 ou supérieur
+- pip et virtualenv
+
+### Environnement de développement
+
+Suivez les mêmes étapes que pour l'installation, mais installez les dépendances de développement si un fichier `requirements-dev.txt` est disponible.
 
 ```bash
-curl -X POST http://localhost:5000/publish \
-     -H "Content-Type: application/json" \
-     -d '{"topic": "sports", "message": "Goal scored!"}'
+# Cloner le dépôt
+git clone https://github.com/votre-repo/Python.PubSub.Server.git
+cd Python.PubSub.Server
+
+# Créer l'environnement virtuel
+python -m venv .venv
+source .venv/bin/activate
+
+# Installer les dépendances
+pip install -r requirements.txt
+# pip install -r requirements-dev.txt # Si applicable
 ```
 
-#### Using Python
+### Lancer les tests
 
-```python
-import requests
+Le projet utilise `pytest` pour les tests. Assurez-vous d'installer `pytest` et les autres dépendances de test.
 
-response = requests.post(
-    "http://localhost:5000/publish",
-    json={"topic": "sports", "message": "Goal scored!"}
-)
+```bash
+# Lancer tous les tests
+pytest -v
 ```
 
-### 3. Subscribe to Topics
+## 📁 Structure du Projet
 
-#### Using Python Client
-
-```python
-from pubsub import PubSubClient
-
-
-def handle_sports_message(message):
-    print(f"Sports update: {message}")
-
-
-def handle_news_message(message):
-    print(f"News update: {message}")
-
-
-# Create client and connect
-client = PubSubClient(
-    consumer_name="alice",
-    topics=["sports", "news"]
-)
-
-# Register message handlers
-client.register_handler("sports", handle_sports_message)
-client.register_handler("news", handle_news_message)
-
-# Start listening
-client.start()
 ```
-
-#### Using Web Interface
-
-Open your browser at `http://localhost:5000/client.html`
-
-## 📁 Project Structure
-
-```text
-Python.Publisher.Subscriber/
-├── src/                      # Source code
-│   ├── pubsub/              # Core library modules
-│   │   ├── __init__.py
-│   │   ├── pubsub_client.py
-│   │   └── pubsub_message.py
-│   ├── pubsub_ws.py         # Main server application
-│   └── client.py            # Client implementation
-├── tests/                    # Test suite
+Python.PubSub.Server/
+├── src/
+│   └── pubsub_ws.py             # Implémentation principale du serveur
+├── migrations/
+│   └── 001_...sql               # Scripts de migration de la base de données
+├── tests/                       # Suite de tests
 │   ├── test_pubsub_ws.py
-│   └── test_pubsub_client.py
-├── config/                   # Configuration files
-├── docs/                     # Documentation
-├── migrations/               # Database migrations
-├── static/                   # Static web files
-├── .github/                  # GitHub Actions workflows
-│   └── workflows/
-│       ├── ci.yml
-│       └── release.yml
-├── Dockerfile               # Docker configuration
-├── docker-compose.yml       # Docker Compose setup
-├── Makefile                 # Development commands
-├── pyproject.toml          # Python project configuration
-├── setup.py                # Package setup
-├── requirements.txt        # Python dependencies
-└── README.md              # This file
+│   └── ...
+├── client.html                  # Interface web de démonstration
+├── static/                      # Fichiers statiques (CSS, JS) pour client.html
+├── requirements.txt             # Dépendances du projet
+└── README.md                    # Ce fichier
 ```
 
-## 🧪 Testing
+## 🤝 Contribution
 
-### Run Tests
+Les contributions sont les bienvenues \! Veuillez suivre ces étapes :
 
-```bash
-# Run all tests
-make test
+1. Forkez le dépôt
+2. Créez une branche pour votre fonctionnalité (`git checkout -b feature/nouvelle-feature`)
+3. Commitez vos changements (`git commit -m 'Ajout de ma nouvelle feature'`)
+4. Poussez vers la branche (`git push origin feature/nouvelle-feature`)
+5. Ouvrez une Pull Request
 
-# Run specific test file
-pytest tests/test_pubsub_ws.py -v
+Veuillez vous assurer que tous les tests passent et que la documentation est mise à jour si nécessaire.
 
-# Run in watch mode
-pytest-watch tests/ -v
-```
+## 📄 Licence
 
-## 🛠️ Development
+Ce projet est sous licence MIT - voir le fichier `LICENSE` pour plus de détails.
 
-### Setup Development Environment
+## 📧 Contact
 
-```bash
-# Install development dependencies
-make install
-```
-
-### Available Make Commands
-
-```bash
-make help         # Show all available commands
-make test         # Run tests
-make clean        # Clean generated files
-make install      # Install dependencies
-make update       # Update dependencies
-```
-
-## 📊 Database Schema
-
-The application uses SQLite with the following schema:
-
-### Messages Table
-
-- `id`: Primary key
-- `topic`: Message topic
-- `message`: Message content
-- `timestamp`: Creation time
-
-### Subscriptions Table
-
-- `id`: Primary key
-- `consumer`: Consumer name
-- `topic`: Subscribed topic
-- `timestamp`: Subscription time
-
-### Consumptions Table
-
-- `id`: Primary key
-- `consumer`: Consumer name
-- `message_id`: Reference to message
-- `consumed_at`: Consumption timestamp
-
-## 🔌 API Reference
-
-### REST Endpoints
-
-#### POST /publish
-
-Publish a message to a topic.
-
-```json
-{
-  "topic": "string",
-  "message": "string"
-}
-```
-
-#### GET /health
-
-Health check endpoint.
-
-### WebSocket Events
-
-#### Client → Server
-
-- `subscribe`: Subscribe to topics
-
-```json
-{
-  "consumer": "string",
-  "topics": [
-    "string"
-  ]
-}
-```
-
-- `publish`: Publish message via WebSocket
-
-```json
-{
-  "topic": "string",
-  "message": "string"
-}
-```
-
-#### Server → Client
-
-- `message`: Receive subscribed messages
-- `client_list`: Updated list of connected clients
-- `consumption_update`: Message consumption notifications
-
-## 🐳 Docker Deployment
-
-### Using Docker Compose (Recommended)
-
-```bash
-# Start all services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Stop services
-docker-compose down
-```
-
-### Manual Docker Build
-
-```bash
-# Build image
-docker build -t python.publisher.subscriber:latest .
-
-# Run container
-docker run -d \
-  -p 5000:5000 \
-  -v $(pwd)/pubsub.db:/app/pubsub.db \
-  --name pubsub-server \
-  python.publisher.subscriber:latest
-```
-
-## 📈 Monitoring
-
-### Health Check
-
-```bash
-curl http://localhost:5000/health
-```
-
-### Metrics
-
-The application provides real-time metrics through the web interface:
-
-- Connected clients count
-- Messages per topic
-- Consumption rate
-- Active subscriptions
-
-## 🔒 Security
-
-- Input validation on all endpoints
-- SQL injection prevention via parameterized queries
-- XSS protection in web interface
-- Rate limiting support
-- CORS configuration available
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these steps:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-### Development Guidelines
-
-- Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide
-- Add tests for new features
-- Update documentation as needed
-- Use type hints
-
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🙏 Acknowledgments
-
-- Flask team for the excellent web framework
-- Socket.IO team for real-time communication
-- All contributors and users of this project
-
-## 📚 Documentation
-
-Full documentation is available in the `docs/` directory.
-
-## 📧 Support
-
-- **Issues**: GitHub Issues
-- **Discussions**: GitHub Discussions
-- **Email**: <venantvr@gmail.com>
-
-## 🗺️ Roadmap
-
-- [ ] Redis backend support
-- [ ] Message persistence options
-- [ ] Authentication and authorization
-- [ ] Message encryption
-- [ ] Horizontal scaling support
-- [ ] GraphQL API
-- [ ] Admin dashboard
-- [ ] Message replay functionality
-- [ ] Dead letter queue
-- [ ] Prometheus metrics export
-
----
-
-<!-- markdownlint-disable MD033 -->
-<div align="center">
-Made with ❤️ by the Python Publisher Subscriber team
-</div>
+- Auteur : venantvr
+- Email : venantvr@gmail.com
+- GitHub : [@venantvr](https://github.com/venantvr)
