@@ -49,4 +49,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Run the application (inchangé)
 # CMD ["python", "src/pubsub_ws.py"]
-CMD ["python", "-m", "pubsub_ws"]
+# CMD ["python", "-m", "pubsub_ws"]
+CMD ["python", "-m", "src.pubsub_ws"]
