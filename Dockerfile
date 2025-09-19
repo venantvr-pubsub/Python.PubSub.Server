@@ -1,53 +1,53 @@
 # Multi-stage build for optimized image size
 FROM python:3.11-slim as builder
 
+# Le WORKDIR du builder peut rester /app
 WORKDIR /app
 
-# Install system dependencies (inchangé)
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
 
-# Copie les fichiers nécessaires (inchangé)
+# Copy files required for package installation
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-# Installe le package et ses dépendances de manière GLOBALE (on retire --user)
+# Install the package and its dependencies globally
 RUN pip install --no-cache-dir .
 
-# Production stage
+# --- Production stage ---
 FROM python:3.11-slim
 
-# Set environment variables (PATH n'est plus nécessaire ici)
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-WORKDIR /app
+# --- CORRECTION 1: Changer le WORKDIR ---
+# Le répertoire de travail est maintenant /app/src, là où se trouve le script principal.
+WORKDIR /app/src
 
-# Copie les dépendances depuis le site-packages GLOBAL du builder
+# Copie les dépendances depuis le builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 
-# Copie le code de l'application et les fichiers web
-COPY src/ ./src/
-COPY static/ ./static/
-COPY migrations/ ./migrations/
-# --- AJOUT ---
-# Copie le fichier client.html à la racine du répertoire de travail /app
-COPY client.html .
-# --- FIN DE L'AJOUT ---
+# Copie le code de l'application DANS /app (un niveau au-dessus du WORKDIR)
+COPY src/ /app/src/
 
-# Create non-root user (inchangé)
+# --- CORRECTION 2: Copier les fichiers statiques AU BON ENDROIT ---
+# Copie les fichiers web dans /app/src, pour que send_from_directory(".", ...) les trouve.
+COPY static/ /app/src/static/
+COPY migrations/ /app/src/migrations/
+COPY client.html /app/src/client.html
+
+# Création de l'utilisateur non-root
+# On lui donne les droits sur /app entier
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
-# Expose port (inchangé)
+# Expose port
 EXPOSE 5000
 
-# Health check (inchangé)
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:5000/health')" || exit 1
 
-# Run the application (inchangé)
-# CMD ["python", "src/pubsub_ws.py"]
-# CMD ["python", "-m", "pubsub_ws"]
-CMD ["python", "-m", "src.pubsub_ws"]
+# --- CORRECTION 3: Lancer le script directement ---
+# Puisque nous sommes dans /app/src, on lance directement le script.
+CMD ["python", "pubsub_ws.py"]
