@@ -50,7 +50,7 @@ Unsure where to begin contributing? You can start by looking through these `begi
 
 1. **Setup your environment:**
    ```
-   git clone [https://github.com/venantvr/Python.Publisher.Subscriber.git](https://github.com/venantvr/Python.Publisher.Subscriber.git)
+   git clone [https://github.com/venantvr-pubsub/Python.Publisher.Subscriber.git](https://github.com/venantvr/Python.Publisher.Subscriber.git)
    cd Python.Publisher.Subscriber
    python -m venv venv
    source venv/bin/activate
