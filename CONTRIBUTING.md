@@ -10,7 +10,8 @@ This project and everyone participating in it is governed by our Code of Conduct
 
 ### Reporting Bugs
 
-Before creating bug reports, please check existing issues as you might find out that you don't need to create one. When you are creating a bug report, please include as many details as possible:
+Before creating bug reports, please check existing issues as you might find out that you don't need to create one. When you are creating a bug report, please include as
+many details as possible:
 
 * Use a clear and descriptive title for the issue to identify the problem.
 * Describe the exact steps which reproduce the problem in as many details as possible.
@@ -38,45 +39,45 @@ Unsure where to begin contributing? You can start by looking through these `begi
 
 ### Pull Requests
 
-1.  Fork the repo and create your branch from `main`.
-2.  If you've added code that should be tested, add tests.
-3.  If you've changed APIs, update the documentation.
-4.  Ensure the test suite passes.
-5.  Make sure your code follows the existing style.
-6.  Issue that pull request!
+1. Fork the repo and create your branch from `main`.
+2. If you've added code that should be tested, add tests.
+3. If you've changed APIs, update the documentation.
+4. Ensure the test suite passes.
+5. Make sure your code follows the existing style.
+6. Issue that pull request!
 
 ## Development Process
 
-1.  **Setup your environment:**
-    ```
-    git clone [https://github.com/venantvr/Python.Publisher.Subscriber.git](https://github.com/venantvr/Python.Publisher.Subscriber.git)
-    cd Python.Publisher.Subscriber
-    python -m venv venv
-    source venv/bin/activate
-    pip install -r requirements-dev.txt
-    pip install -e .
-    ```
-2.  **Create a feature branch:**
-    ```
-    git checkout -b feature/your-feature-name
-    ```
-3.  **Make your changes:**
+1. **Setup your environment:**
+   ```
+   git clone [https://github.com/venantvr/Python.Publisher.Subscriber.git](https://github.com/venantvr/Python.Publisher.Subscriber.git)
+   cd Python.Publisher.Subscriber
+   python -m venv venv
+   source venv/bin/activate
+   pip install -r requirements-dev.txt
+   pip install -e .
+   ```
+2. **Create a feature branch:**
+   ```
+   git checkout -b feature/your-feature-name
+   ```
+3. **Make your changes:**
     * Write your code
     * Add tests for your changes
     * Update documentation if needed
-4.  **Run tests and checks:**
-    ```
-    make test        # Run tests
-    ```
-5.  **Commit your changes:**
-    ```
-    git add .
-    git commit -m "Add feature: your feature description"
-    ```
-6.  **Push and create PR:**
-    ```
-    git push origin feature/your-feature-name
-    ```
+4. **Run tests and checks:**
+   ```
+   make test        # Run tests
+   ```
+5. **Commit your changes:**
+   ```
+   git add .
+   git commit -m "Add feature: your feature description"
+   ```
+6. **Push and create PR:**
+   ```
+   git push origin feature/your-feature-name
+   ```
 
 ## Style Guidelines
 

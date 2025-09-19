@@ -155,7 +155,7 @@ def test_publish_endpoint(flask_test_client, test_broker):
         "producer": producer,
     }
     with patch.object(test_broker, "save_message") as mock_save, patch(
-        "pubsub_ws.socketio.emit"
+            "pubsub_ws.socketio.emit"
     ) as mock_emit:
         response = flask_test_client.post("/publish", json=payload)
         assert response.status_code == 200
@@ -214,7 +214,7 @@ def test_socketio_subscribe(socketio_test_client, test_broker, mocker):
         request.sid = test_sid  # <-- NEW: Direct assignment to request.sid
 
         with patch("pubsub_ws.join_room") as mock_join_room, patch.object(
-            test_broker, "register_subscription"
+                test_broker, "register_subscription"
         ) as mock_register_subscription, patch("pubsub_ws.emit") as mock_emit:
             # Call the event handler directly.
             # `handle_subscribe` attend `data` comme argument.

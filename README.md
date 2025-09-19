@@ -105,11 +105,14 @@ response = requests.post(
 ```python
 from pubsub import PubSubClient
 
+
 def handle_sports_message(message):
     print(f"Sports update: {message}")
 
+
 def handle_news_message(message):
     print(f"News update: {message}")
+
 
 # Create client and connect
 client = PubSubClient(
@@ -247,7 +250,9 @@ Health check endpoint.
 ```json
 {
   "consumer": "string",
-  "topics": ["string"]
+  "topics": [
+    "string"
+  ]
 }
 ```
 

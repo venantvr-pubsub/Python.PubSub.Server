@@ -19,7 +19,7 @@ from socketio import exceptions  # noqa: E402
 def mock_sio_client():
     """Mocks the socketio.Client instance used by PubSubClient."""
     with patch(
-        "client.socketio.Client"
+            "client.socketio.Client"
     ) as MockClient:  # <-- Patch la class directement dans le module client
         instance = MockClient.return_value  # This is the mock of the instance that will be created
         instance.connected = False  # Simulate initial disconnected state
@@ -32,7 +32,7 @@ def mock_requests_post():
     """Mocke requests.post pour les appels de publication HTTP."""
     # Patch requests.post in the client module where it is used
     with patch(
-        "client.requests.post"
+            "client.requests.post"
     ) as mock_post:  # <-- Patch requests.post dans le module client
         mock_response = MagicMock()
         mock_response.json.return_value = {"status": "ok", "message_id": "test_id_returned"}
