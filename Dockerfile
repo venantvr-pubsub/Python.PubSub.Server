@@ -12,11 +12,8 @@ RUN apt-get update && apt-get install -y \
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-# --- CHANGEMENT 1 ---
 # Installe le package et ses dépendances de manière GLOBALE (on retire --user)
 RUN pip install --no-cache-dir .
-
-# --- FIN DU CHANGEMENT 1 ---
 
 # Production stage
 FROM python:3.11-slim
@@ -27,20 +24,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# --- CHANGEMENT 2 ---
 # Copie les dépendances depuis le site-packages GLOBAL du builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-# --- FIN DU CHANGEMENT 2 ---
 
-# Copie le code de l'application
+# Copie le code de l'application et les fichiers web
 COPY src/ ./src/
 COPY static/ ./static/
 COPY migrations/ ./migrations/
-
-# --- CHANGEMENT 3 ---
-# Il n'y a PLUS BESOIN de réinstaller le package ici, les dépendances sont déjà copiées.
-# Cette étape est supprimée pour un build plus rapide et plus propre.
-# --- FIN DU CHANGEMENT 3 ---
+# --- AJOUT ---
+# Copie le fichier client.html à la racine du répertoire de travail /app
+COPY client.html .
+# --- FIN DE L'AJOUT ---
 
 # Create non-root user (inchangé)
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
