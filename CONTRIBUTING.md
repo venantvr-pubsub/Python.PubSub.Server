@@ -55,7 +55,6 @@ Unsure where to begin contributing? You can start by looking through these `begi
     source venv/bin/activate
     pip install -r requirements-dev.txt
     pip install -e .
-    pre-commit install
     ```
 2.  **Create a feature branch:**
     ```
@@ -68,8 +67,6 @@ Unsure where to begin contributing? You can start by looking through these `begi
 4.  **Run tests and checks:**
     ```
     make test        # Run tests
-    make lint        # Check code style
-    make format      # Format code
     ```
 5.  **Commit your changes:**
     ```
@@ -86,8 +83,6 @@ Unsure where to begin contributing? You can start by looking through these `begi
 ### Python Style Guide
 
 * Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/).
-* Use [Black](https://github.com/psf/black) for code formatting.
-* Use [isort](https://github.com/PyCQA/isort) for import sorting.
 * Maximum line length is 100 characters.
 * Use type hints where possible.
 

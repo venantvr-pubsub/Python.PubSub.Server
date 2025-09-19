@@ -8,7 +8,6 @@ include Makefile
 include Dockerfile
 include docker-compose.yml
 include .gitignore
-include .pre-commit-config.yaml
 
 recursive-include src *.py
 recursive-include tests *.py

@@ -7,10 +7,6 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Flask](https://img.shields.io/badge/Flask-3.0.0-red)
 ![WebSocket](https://img.shields.io/badge/WebSocket-Enabled-brightgreen)
-![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)
-![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)
-![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)
-![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)
 
 A high-performance, real-time Publisher-Subscriber system built with Flask, Flask-SocketIO, and SQLite.
 
@@ -33,7 +29,6 @@ A high-performance, real-time Publisher-Subscriber system built with Flask, Flas
 - **Docker Support**: Ready-to-deploy Docker configuration
 - **Comprehensive Testing**: Extensive test suite with pytest
 
-- **Type Safety**: Full type hints and mypy validation
 - **Production Ready**: Health checks, logging, and error handling
 
 ## 📋 Requirements
@@ -187,15 +182,6 @@ pytest-watch tests/ -v
 ```bash
 # Install development dependencies
 make install
-
-# Setup pre-commit hooks
-pre-commit install
-
-# Format code
-make format
-
-# Run all checks
-make check
 ```
 
 ### Available Make Commands
@@ -203,8 +189,6 @@ make check
 ```bash
 make help         # Show all available commands
 make test         # Run tests
-make format       # Format code
-make check        # Run format and tests
 make clean        # Clean generated files
 make install      # Install dependencies
 make update       # Update dependencies
@@ -352,7 +336,6 @@ Contributions are welcome! Please follow these steps:
 - Add tests for new features
 - Update documentation as needed
 - Use type hints
-- Run `make pre-commit` before committing
 
 ## 📄 License
 
