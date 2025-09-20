@@ -35,6 +35,7 @@ COPY src/ /app/src/
 COPY static/ /app/src/static/
 COPY migrations/ /app/src/migrations/
 COPY client.html /app/src/client.html
+COPY activity.html /app/src/activity.html
 
 # Création de l'utilisateur non-root
 # On lui donne les droits sur /app entier

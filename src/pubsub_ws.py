@@ -282,6 +282,7 @@ class Broker:
 broker = Broker(DB_FILE_NAME)
 
 
+# noinspection PyTypeChecker
 @app.route("/publish", methods=["POST"])
 def publish() -> Tuple[Dict[str, str], int]:
     data = request.json
@@ -334,6 +335,12 @@ def serve_client() -> flask.Response:
 def serve_static(filename: str) -> flask.Response:
     logger.info(f"Serving static file: {filename}")
     return send_from_directory("static", filename)
+
+
+@app.route("/activity.html")
+def serve_activity() -> flask.Response:
+    logger.info("Serving activity.html")
+    return send_from_directory(".", "activity.html")
 
 
 @socketio.on("subscribe")
