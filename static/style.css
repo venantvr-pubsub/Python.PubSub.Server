@@ -1,0 +1,109 @@
+/* --- Thème sombre partagé pour les interfaces Pub/Sub --- */
+body {
+    background-color: #282c34;
+    color: #ffffff;
+}
+
+h1, h2 {
+    color: #61dafb; /* Couleur d'accentuation */
+}
+
+hr {
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* --- Barre de navigation --- */
+.navbar {
+    background-color: #20232a !important;
+}
+.navbar-brand {
+    color: #61dafb !important;
+    font-weight: bold;
+}
+.nav-link {
+    color: #a9a9a9 !important;
+}
+.nav-link.active {
+    color: #ffffff !important;
+    font-weight: bold;
+}
+
+/* --- Éléments de formulaire --- */
+.form-control {
+    background-color: #3c4049;
+    color: #ffffff;
+    border: 1px solid #61dafb;
+}
+
+.form-control::placeholder {
+    color: #a9a9a9;
+}
+
+.form-control:focus {
+    background-color: #4a505a;
+    color: #ffffff;
+    border-color: #ffffff;
+    box-shadow: 0 0 0 0.25rem rgba(97, 218, 251, 0.25);
+}
+
+/* --- Boutons --- */
+.btn-primary {
+    background-color: #61dafb;
+    border-color: #61dafb;
+    color: #282c34;
+    font-weight: bold;
+}
+.btn-primary:hover {
+    background-color: #ffffff;
+    border-color: #ffffff;
+    color: #282c34;
+}
+.btn-success {
+    background-color: #28a745;
+    border-color: #28a745;
+    color: #ffffff;
+}
+ .btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* --- Onglets --- */
+.nav-tabs {
+    border-bottom: 1px solid #61dafb;
+}
+
+.nav-tabs .nav-link {
+    color: #a9a9a9;
+    border: 1px solid transparent;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #4a505a;
+}
+
+.nav-tabs .nav-link.active {
+    color: #61dafb;
+    background-color: #3c4049;
+    border-color: #61dafb #61dafb #3c4049;
+    font-weight: bold;
+}
+
+/* --- Tableaux & Listes --- */
+.table {
+    color: #ffffff;
+}
+
+.table th {
+    color: #61dafb;
+}
+
+.table-bordered > :not(caption) > * > * {
+    border-color: #4a505a;
+}
+
+.list-group-item {
+    background-color: #3c4049;
+    border: 1px solid #4a505a;
+    color: #ffffff;
+}
