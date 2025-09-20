@@ -107,3 +107,16 @@ hr {
     border: 1px solid #4a505a;
     color: #ffffff;
 }
+
+/* --- AJOUT : Correction pour le layout des tableaux --- */
+.tab-content .table {
+    table-layout: fixed; /* Force le tableau à respecter la largeur du conteneur */
+    width: 100%;
+}
+
+.tab-content .table td,
+.tab-content .table th {
+    word-wrap: break-word; /* Force le retour à la ligne des mots/chaînes trop longues */
+    overflow-wrap: break-word; /* Équivalent moderne */
+}
+
