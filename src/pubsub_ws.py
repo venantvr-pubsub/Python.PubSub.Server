@@ -203,11 +203,15 @@ class Broker:
         try:
             conn = self._get_db_connection()
             c = conn.cursor()
+            # --- MODIFICATION ---
             c.execute(
                 """
                 SELECT consumer, topic, connected_at FROM subscriptions
+                ORDER BY connected_at DESC
+                LIMIT 100
             """
             )
+            # --- FIN DE LA MODIFICATION ---
             rows = c.fetchall()
             clients = [{"consumer": r[0], "topic": r[1], "connected_at": r[2]} for r in rows]
             logger.info(f"Retrieved {len(clients)} connected clients")
@@ -225,13 +229,16 @@ class Broker:
         try:
             conn = self._get_db_connection()
             c = conn.cursor()
+            # --- MODIFICATION ---
             c.execute(
                 """
                 SELECT topic, message_id, message, producer, timestamp FROM messages
                 WHERE message_id IS NOT NULL
                 ORDER BY timestamp DESC
+                LIMIT 100
             """
             )
+            # --- FIN DE LA MODIFICATION ---
             rows = c.fetchall()
             messages = [
                 {"topic": r[0], "message_id": r[1], "message": json.loads(r[2]), "producer": r[3],
@@ -253,13 +260,16 @@ class Broker:
         try:
             conn = self._get_db_connection()
             c = conn.cursor()
+            # --- MODIFICATION ---
             c.execute(
                 """
                 SELECT consumer, topic, message_id, message, timestamp FROM consumptions
                 WHERE message_id IS NOT NULL
                 ORDER BY timestamp DESC
+                LIMIT 100
             """
             )
+            # --- FIN DE LA MODIFICATION ---
             rows = c.fetchall()
             consumptions = [
                 {"consumer": r[0], "topic": r[1], "message_id": r[2], "message": json.loads(r[3]),
