@@ -1,7 +1,9 @@
-/* --- Thème sombre partagé pour les interfaces Pub/Sub --- */
+/* --- 1. MISE EN PAGE FLEXBOX POUR LE DÉFILEMENT --- */
 html, body {
     height: 100vh; /* La base doit prendre toute la hauteur de la vue */
     overflow: hidden; /* Empêche le défilement de la page entière */
+    background-color: #282c34;
+    color: #ffffff;
 }
 
 body {
@@ -16,18 +18,21 @@ body {
     min-height: 0; /* Correction importante pour le dépassement dans un flex container */
 }
 
-/* ... (tous les autres styles restent identiques) ... */
+
+/* --- 2. STYLES VISUELS (COULEURS) --- */
 
 h1, h2 {
-    color: #61dafb;
+    color: #61dafb; /* Couleur d'accentuation */
 }
 
 hr {
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* --- Barre de navigation --- */
 .navbar {
     background-color: #20232a !important;
+    flex-shrink: 0; /* Empêche la barre de navigation de rétrécir */
 }
 .navbar-brand {
     color: #61dafb !important;
@@ -41,6 +46,7 @@ hr {
     font-weight: bold;
 }
 
+/* --- Éléments de formulaire --- */
 .form-control {
     background-color: #3c4049;
     color: #ffffff;
@@ -58,6 +64,7 @@ hr {
     box-shadow: 0 0 0 0.25rem rgba(97, 218, 251, 0.25);
 }
 
+/* --- Boutons --- */
 .btn-primary {
     background-color: #61dafb;
     border-color: #61dafb;
@@ -79,8 +86,10 @@ hr {
     border-color: #1e7e34;
 }
 
+/* --- Onglets --- */
 .nav-tabs {
     border-bottom: 1px solid #61dafb;
+    flex-shrink: 0; /* Empêche les onglets de rétrécir */
 }
 
 .nav-tabs .nav-link {
@@ -99,6 +108,7 @@ hr {
     font-weight: bold;
 }
 
+/* --- Tableaux & Listes --- */
 .table {
     color: #ffffff;
 }
@@ -117,6 +127,9 @@ hr {
     color: #ffffff;
 }
 
+/* --- 3. CORRECTIONS DE MISE EN PAGE SPÉCIFIQUES --- */
+
+/* Correction pour le layout des tableaux */
 .tab-content .table {
     table-layout: fixed;
     width: 100%;
@@ -128,10 +141,10 @@ hr {
     overflow-wrap: break-word;
 }
 
-/* --- AJOUT : Styles pour les panneaux à défilement --- */
+/* Styles pour les panneaux à défilement */
 .tab-content {
     flex-grow: 1; /* Fait grandir la zone des onglets */
-    min-height: 0; /* Correction pour le dépassement */
+    min-height: 0;
     display: flex;
 }
 
@@ -141,10 +154,11 @@ hr {
     overflow-y: auto; /* Ajoute un ascenseur vertical si nécessaire */
 }
 
-/* Bonus : en-têtes de tableau fixes pour une meilleure expérience de défilement */
+/* En-têtes de tableau fixes pour une meilleure expérience de défilement */
 .table thead {
     position: sticky;
     top: 0;
-    background-color: #3c4049; /* Assorti au fond de l'onglet */
+    background-color: #3c4049;
     z-index: 1;
 }
+
