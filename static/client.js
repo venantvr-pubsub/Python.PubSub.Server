@@ -31,7 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Specific business class for text messages
     class TextMessage extends BaseMessage {
         constructor(text, producer, message_id) {
-            super(producer, { text: text }, message_id);
+            super(producer, {text: text}, message_id);
         }
     }
 
@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         socket.on("connect", () => {
             console.log("Connected to server.");
-            socket.emit("subscribe", { consumer, topics });
+            socket.emit("subscribe", {consumer, topics});
             console.log(`Subscribed to topics: ${topics}`);
             // Refresh admin tables on successful connection
             refreshMessages();
@@ -117,18 +117,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
         fetch("/publish", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {"Content-Type": "application/json"},
             body: JSON.stringify(payload)
         })
-        .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(new Error(e.message))))
-        .then(data => {
-            console.log(`Publish response: ${JSON.stringify(data)}`);
-            document.getElementById("pubMessage").value = "";
-        })
-        .catch(err => {
-            console.error(`Publish error: ${err}`);
-            alert(`Failed to publish message: ${err.message}`);
-        });
+            .then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(new Error(e.message))))
+            .then(data => {
+                console.log(`Publish response: ${JSON.stringify(data)}`);
+                document.getElementById("pubMessage").value = "";
+            })
+            .catch(err => {
+                console.error(`Publish error: ${err}`);
+                alert(`Failed to publish message: ${err.message}`);
+            });
     });
 
     // Helper function to format timestamp

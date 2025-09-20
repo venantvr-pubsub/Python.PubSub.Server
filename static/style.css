@@ -34,13 +34,16 @@ hr {
     background-color: #20232a !important;
     flex-shrink: 0; /* Empêche la barre de navigation de rétrécir */
 }
+
 .navbar-brand {
     color: #61dafb !important;
     font-weight: bold;
 }
+
 .nav-link {
     color: #a9a9a9 !important;
 }
+
 .nav-link.active {
     color: #ffffff !important;
     font-weight: bold;
@@ -71,17 +74,20 @@ hr {
     color: #282c34;
     font-weight: bold;
 }
+
 .btn-primary:hover {
     background-color: #ffffff;
     border-color: #ffffff;
     color: #282c34;
 }
+
 .btn-success {
     background-color: #28a745;
     border-color: #28a745;
     color: #ffffff;
 }
- .btn-success:hover {
+
+.btn-success:hover {
     background-color: #218838;
     border-color: #1e7e34;
 }
