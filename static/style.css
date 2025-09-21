@@ -25,6 +25,10 @@ h1, h2 {
     color: #61dafb; /* Couleur d'accentuation */
 }
 
+h1 {
+    padding-bottom: 20px;
+}
+
 hr {
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
