@@ -75,7 +75,10 @@ document.addEventListener("DOMContentLoaded", () => {
         socket.on("message", (data) => {
             console.log(`Message received: ${JSON.stringify(data)}`);
 
-            // Display message in the "Received Messages" UI
+            // --- CORRECTION : Définir la variable 'list' en récupérant l'élément du DOM ---
+            const list = document.getElementById("receivedMessagesList");
+            // --- FIN DE LA CORRECTION ---
+
             const item = document.createElement("li");
             item.className = "list-group-item";
             item.innerHTML = `<strong>[${data.topic}]</strong> <em>(${data.producer} / ${data.message_id})</em>: ${JSON.stringify(data.message)}`;
