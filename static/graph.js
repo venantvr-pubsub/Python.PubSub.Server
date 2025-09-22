@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .enter().append("marker")
         .attr("id", d => `arrow-${d}`)
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 30) // Distance par rapport au cercle
+        .attr("refX", 30)
         .attr("refY", 0)
         .attr("markerWidth", 6)
         .attr("markerHeight", 6)
@@ -30,7 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .attr("class", d => `arrow-${d}`)
         .style("fill", d => d === 'publish' ? '#28a745' : '#ffab40');
 
-    // Simulation de forces D3 (sans force de lien permanente)
+    // Simulation de forces D3
     const simulation = d3.forceSimulation()
         .force("charge", d3.forceManyBody().strength(-400))
         .force("x", d3.forceX(width / 2).strength(0.05))
@@ -39,31 +39,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Gestion des données du graphe ---
     let nodes = [];
-    const nodeMap = new Map(); // Pour garantir des nœuds singletons
+    const nodeMap = new Map();
 
     // Fonction pour ajouter un nœud s'il n'existe pas
     function addNode(id, type) {
         if (!nodeMap.has(id)) {
-            const newNode = {id, type, name: id.split('-').slice(1).join('-')};
+            const newNode = { id, type, name: id.split('-').slice(1).join('-') };
             nodes.push(newNode);
             nodeMap.set(id, newNode);
-            return true; // Indique qu'un noeud a été ajouté
+            return true;
         }
         return false;
     }
 
-    // ✨ --- NOUVELLE FONCTION POUR LES FLÈCHES TEMPORAIRES --- ✨
+    // Fonction pour dessiner les flèches temporaires
     function drawTemporaryArrow(sourceId, targetId, type) {
         const sourceNode = nodeMap.get(sourceId);
         const targetNode = nodeMap.get(targetId);
 
         if (!sourceNode || !targetNode) {
-            console.warn("Cannot draw arrow, node not found.", {sourceId, targetId});
+            console.warn("Cannot draw arrow, node not found.", { sourceId, targetId });
             return;
         }
 
-        // Crée l'élément <line> pour la flèche
         const tempLink = linkGroup.append("line")
+            // ✨ MODIFICATION 1: Attacher les données des nœuds à la flèche
+            .datum({ source: sourceNode, target: targetNode })
             .attr("class", `link ${type}`)
             .attr("marker-end", `url(#arrow-${type})`)
             .attr("x1", sourceNode.x)
@@ -72,44 +73,51 @@ document.addEventListener("DOMContentLoaded", () => {
             .attr("y2", targetNode.y)
             .style("opacity", 1);
 
-        // Fait disparaître la flèche après 2 secondes
         tempLink.transition()
             .duration(2000)
             .style("opacity", 0)
-            .remove(); // Supprime l'élément du DOM à la fin de la transition
+            .remove();
     }
 
     // --- Fonction de mise à jour du rendu ---
     function updateGraph() {
-        // Met à jour uniquement les Nœuds
         nodeGroup.selectAll(".node")
             .data(nodes, d => d.id)
-            .join(enter => {
-                const nodeEnter = enter.append("g")
-                    .attr("class", d => `node ${d.type}`)
-                    .call(drag(simulation));
+            .join(
+                enter => {
+                    const nodeEnter = enter.append("g")
+                        .attr("class", d => `node ${d.type}`)
+                        .call(drag(simulation));
 
-                nodeEnter.append("circle").attr("r", radius);
-                nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40");
-                nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745");
-                nodeEnter.append("text")
-                    .attr("dy", ".35em")
-                    .attr("x", 0)
-                    .attr("y", radius + 15)
-                    .text(d => d.name);
+                    nodeEnter.append("circle").attr("r", radius);
+                    nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40");
+                    nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745");
+                    nodeEnter.append("text")
+                        .attr("dy", ".35em")
+                        .attr("x", 0)
+                        .attr("y", radius + 15)
+                        .text(d => d.name);
 
-                return nodeEnter;
-            });
+                    return nodeEnter;
+                }
+            );
 
-        // Relance la simulation avec les nouveaux nœuds
         simulation.nodes(nodes);
         simulation.alpha(0.3).restart();
     }
 
-    // Fonction appelée à chaque "tick" de la simulation pour mettre à jour les positions
+    // Fonction appelée à chaque "tick" de la simulation
     function ticked() {
+        // Met à jour la position des nœuds
         nodeGroup.selectAll('.node')
             .attr("transform", d => `translate(${d.x},${d.y})`);
+
+        // ✨ MODIFICATION 2: Met à jour la position de TOUTES les flèches existantes
+        linkGroup.selectAll('line')
+            .attr("x1", d => d.source.x)
+            .attr("y1", d => d.source.y)
+            .attr("x2", d => d.target.x)
+            .attr("y2", d => d.target.y);
     }
 
     // --- Interactivité (Zoom et Drag) ---
@@ -117,24 +125,18 @@ document.addEventListener("DOMContentLoaded", () => {
     svg.call(zoom);
 
     const drag = simulation => {
-        function dragstarted(event, d) {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-        }
-
-        function dragged(event, d) {
-            d.fx = event.x;
-            d.fy = event.y;
-        }
-
-        function dragended(event, d) {
-            if (!event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-        }
-
-        return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
+      function dragstarted(event, d) {
+        if (!event.active) simulation.alphaTarget(0.3).restart();
+        d.fx = d.x; d.fy = d.y;
+      }
+      function dragged(event, d) {
+        d.fx = event.x; d.fy = event.y;
+      }
+      function dragended(event, d) {
+        if (!event.active) simulation.alphaTarget(0);
+        d.fx = null; d.fy = null;
+      }
+      return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 
     // --- Positionnement initial des nœuds ---
@@ -146,7 +148,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const horizontalRadius = width / 3.5;
         const verticalRadius = height / 3.5;
 
-        // Positionner les producteurs sur un arc à gauche
+        // Positionner les producteurs
         const producerAngleStep = Math.PI / (producers.length + 1);
         producers.forEach((node, i) => {
             const angle = Math.PI / 2 + (i + 1) * producerAngleStep;
@@ -154,7 +156,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (node.fy == null) node.y = height / 2 - verticalRadius * Math.cos(angle);
         });
 
-        // Positionner les consommateurs sur un arc à droite
+        // Positionner les consommateurs
         const consumerAngleStep = Math.PI / (consumers.length + 1);
         consumers.forEach((node, i) => {
             const angle = Math.PI / 2 + (i + 1) * consumerAngleStep;
@@ -162,7 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (node.fy == null) node.y = height / 2 - verticalRadius * Math.cos(angle);
         });
 
-        // Positionner les topics au centre et les fixer
+        // Positionner les topics
         const topicYStep = (height / 2) / (topics.length + 1);
         topics.forEach((node, i) => {
             node.fx = width / 2;
@@ -170,7 +172,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // --- Initialisation du graphe (sans les liens) ---
+    // --- Initialisation du graphe ---
     async function initializeGraph() {
         const response = await fetch('/graph/state');
         const state = await response.json();
@@ -186,42 +188,36 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- Connexion WebSocket ---
     socket.on('connect', () => console.log('Connected to activity stream.'));
 
-    socket.on('new_message', (data) => { // PUBLISH
+    socket.on('new_message', (data) => {
         const producerId = `producer-${data.producer}`;
         const topicId = `topic-${data.topic}`;
         const isNewProducer = addNode(producerId, 'producer');
         const isNewTopic = addNode(topicId, 'topic');
-
         drawTemporaryArrow(producerId, topicId, 'publish');
-
         if (isNewProducer || isNewTopic) {
             positionNodes();
             updateGraph();
         }
     });
 
-    socket.on('new_consumption', (data) => { // CONSUME
+    socket.on('new_consumption', (data) => {
         const topicId = `topic-${data.topic}`;
         const consumerId = `consumer-${data.consumer}`;
         const isNewTopic = addNode(topicId, 'topic');
         const isNewConsumer = addNode(consumerId, 'consumer');
-
         drawTemporaryArrow(topicId, consumerId, 'consume');
-
         if (isNewTopic || isNewConsumer) {
             positionNodes();
             updateGraph();
         }
     });
 
-    socket.on('new_client', (data) => { // SUBSCRIBE
+    socket.on('new_client', (data) => {
         const consumerId = `consumer-${data.consumer}`;
         const topicId = `topic-${data.topic}`;
         const isNewConsumer = addNode(consumerId, 'consumer');
         const isNewTopic = addNode(topicId, 'topic');
-
         drawTemporaryArrow(topicId, consumerId, 'consume');
-
         if (isNewConsumer || isNewTopic) {
             positionNodes();
             updateGraph();
