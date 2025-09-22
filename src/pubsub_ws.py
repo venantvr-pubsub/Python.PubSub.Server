@@ -354,7 +354,7 @@ def serve_activity() -> flask.Response:
 
 
 @app.route("/graph.html")
-def serve_activity() -> flask.Response:
+def serve_graph() -> flask.Response:
     logger.info("Serving graph.html")
     return send_from_directory(".", "graph.html")
 
