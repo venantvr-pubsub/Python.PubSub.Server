@@ -353,6 +353,12 @@ def serve_activity() -> flask.Response:
     return send_from_directory(".", "activity.html")
 
 
+@app.route("/graph.html")
+def serve_activity() -> flask.Response:
+    logger.info("Serving graph.html")
+    return send_from_directory(".", "graph.html")
+
+
 @socketio.on("subscribe")
 def handle_subscribe(data: Dict[str, Any]) -> None:
     consumer = data.get("consumer")
@@ -403,6 +409,52 @@ def handle_disconnect() -> None:  # <-- Signature without explicit argument for 
     sid = request.sid  # Always get SID via request.sid
     logger.info(f"Client disconnected (SID: {sid})")
     broker.unregister_client(sid)
+
+
+@app.route("/graph/state")
+def graph_state() -> flask.Response:
+    """
+    Returns the current state of producers, topics, and consumers for graph initialization.
+    """
+    conn = None
+    try:
+        conn = broker._get_db_connection()
+        c = conn.cursor()
+
+        # Get all unique producers from messages
+        c.execute("SELECT DISTINCT producer FROM messages")
+        producers = [row[0] for row in c.fetchall()]
+
+        # Get all unique consumers from subscriptions/consumptions
+        c.execute("SELECT DISTINCT consumer FROM subscriptions UNION SELECT DISTINCT consumer FROM consumptions")
+        consumers = [row[0] for row in c.fetchall()]
+
+        # Get all unique topics
+        c.execute("SELECT DISTINCT topic FROM messages UNION SELECT DISTINCT topic FROM subscriptions UNION SELECT DISTINCT topic FROM consumptions")
+        topics = [row[0] for row in c.fetchall()]
+
+        # Get all active subscriptions (links from topic to consumer)
+        c.execute("SELECT topic, consumer FROM subscriptions")
+        subscriptions = [{"source": row[0], "target": row[1], "type": "consume"} for row in c.fetchall()]
+
+        # Get all producer->topic relationships from messages
+        c.execute("SELECT DISTINCT producer, topic FROM messages")
+        publications = [{"source": row[0], "target": row[1], "type": "publish"} for row in c.fetchall()]
+
+        state = {
+            "producers": producers,
+            "consumers": consumers,
+            "topics": topics,
+            "links": subscriptions + publications
+        }
+        return jsonify(state)
+
+    except sqlite3.Error as e:
+        logger.error(f"Database error retrieving graph state: {e}")
+        return jsonify({"error": "Failed to retrieve graph state"}), 500
+    finally:
+        if conn:
+            broker._close_db_connection(conn)
 
 
 def main() -> None:
