@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Fonction pour ajouter un nœud s'il n'existe pas
     function addNode(id, type) {
         if (!nodeMap.has(id)) {
-            const newNode = { id, type, name: id.split('-').slice(1).join('-') };
+            const newNode = {id, type, name: id.split('-').slice(1).join('-')};
             nodes.push(newNode);
             nodeMap.set(id, newNode);
             return true; // Indique qu'un noeud a été ajouté
@@ -58,7 +58,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const targetNode = nodeMap.get(targetId);
 
         if (!sourceNode || !targetNode) {
-            console.warn("Cannot draw arrow, node not found.", { sourceId, targetId });
+            console.warn("Cannot draw arrow, node not found.", {sourceId, targetId});
             return;
         }
 
@@ -84,24 +84,22 @@ document.addEventListener("DOMContentLoaded", () => {
         // Met à jour uniquement les Nœuds
         nodeGroup.selectAll(".node")
             .data(nodes, d => d.id)
-            .join(
-                enter => {
-                    const nodeEnter = enter.append("g")
-                        .attr("class", d => `node ${d.type}`)
-                        .call(drag(simulation));
+            .join(enter => {
+                const nodeEnter = enter.append("g")
+                    .attr("class", d => `node ${d.type}`)
+                    .call(drag(simulation));
 
-                    nodeEnter.append("circle").attr("r", radius);
-                    nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40");
-                    nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745");
-                    nodeEnter.append("text")
-                        .attr("dy", ".35em")
-                        .attr("x", 0)
-                        .attr("y", radius + 15)
-                        .text(d => d.name);
+                nodeEnter.append("circle").attr("r", radius);
+                nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40");
+                nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745");
+                nodeEnter.append("text")
+                    .attr("dy", ".35em")
+                    .attr("x", 0)
+                    .attr("y", radius + 15)
+                    .text(d => d.name);
 
-                    return nodeEnter;
-                }
-            );
+                return nodeEnter;
+            });
 
         // Relance la simulation avec les nouveaux nœuds
         simulation.nodes(nodes);
@@ -119,18 +117,24 @@ document.addEventListener("DOMContentLoaded", () => {
     svg.call(zoom);
 
     const drag = simulation => {
-      function dragstarted(event, d) {
-        if (!event.active) simulation.alphaTarget(0.3).restart();
-        d.fx = d.x; d.fy = d.y;
-      }
-      function dragged(event, d) {
-        d.fx = event.x; d.fy = event.y;
-      }
-      function dragended(event, d) {
-        if (!event.active) simulation.alphaTarget(0);
-        d.fx = null; d.fy = null;
-      }
-      return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 
     // --- Positionnement initial des nœuds ---

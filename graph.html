@@ -24,9 +24,11 @@
             stroke-opacity: 0.6;
             stroke-width: 2px;
         }
+
         .link.publish {
             stroke: #28a745; /* Vert pour publish */
         }
+
         .link.consume {
             stroke: #ffab40; /* Orange pour subscribe/consume */
         }
@@ -37,9 +39,21 @@
             stroke-width: 2px;
         }
 
-        .node.producer circle { fill: #007bff; } /* Bleu pour les producteurs */
-        .node.topic circle { fill: #6c757d; }    /* Gris pour les topics */
-        .node.consumer circle { fill: #dc3545; } /* Rouge pour les consommateurs */
+        .node.producer circle {
+            fill: #007bff;
+        }
+
+        /* Bleu pour les producteurs */
+        .node.topic circle {
+            fill: #6c757d;
+        }
+
+        /* Gris pour les topics */
+        .node.consumer circle {
+            fill: #dc3545;
+        }
+
+        /* Rouge pour les consommateurs */
 
         /* Style du texte des nœuds */
         .node text {

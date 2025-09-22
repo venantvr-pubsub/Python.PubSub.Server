@@ -70,13 +70,13 @@ class Broker:
         self.db_name = db_name
         self._test_conn = test_conn  # Store test connection
 
-    def _get_db_connection(self) -> sqlite3.Connection:
+    def get_db_connection(self) -> sqlite3.Connection:
         """Helper to get a database connection. Uses test_conn if available."""
         if self._test_conn:
             return self._test_conn  # Return test connection
         return sqlite3.connect(self.db_name)
 
-    def _close_db_connection(self, conn: sqlite3.Connection) -> None:
+    def close_db_connection(self, conn: sqlite3.Connection) -> None:
         """Helper to close a database connection, if it's not a test connection."""
         if conn != self._test_conn:  # Don't close test connection
             conn.close()
@@ -84,7 +84,7 @@ class Broker:
     def register_subscription(self, sid: str, consumer: str, topic: str) -> None:
         conn = None
         try:
-            conn = self._get_db_connection()
+            conn = self.get_db_connection()
             c = conn.cursor()
             c.execute(
                 """
@@ -107,12 +107,12 @@ class Broker:
                 conn.rollback()  # Rollback on error
         finally:
             if conn:
-                self._close_db_connection(conn)  # Use the new close method
+                self.close_db_connection(conn)  # Use the new close method
 
     def unregister_client(self, sid: str) -> None:
         conn = None
         try:
-            conn = self._get_db_connection()
+            conn = self.get_db_connection()
             c = conn.cursor()
             c.execute("SELECT consumer, topic FROM subscriptions WHERE sid = ?", (sid,))
             client_data = c.fetchall()
@@ -127,13 +127,13 @@ class Broker:
                 conn.rollback()
         finally:
             if conn:
-                self._close_db_connection(conn)
+                self.close_db_connection(conn)
 
     def save_message(self, topic: str, message_id: str, message: Any, producer: str) -> None:
         conn = None
         timestamp = time.time()
         try:
-            conn = self._get_db_connection()
+            conn = self.get_db_connection()
             c = conn.cursor()
             c.execute(
                 """
@@ -161,13 +161,13 @@ class Broker:
                 conn.rollback()
         finally:
             if conn:
-                self._close_db_connection(conn)
+                self.close_db_connection(conn)
 
     def save_consumption(self, consumer: str, topic: str, message_id: str, message: Any) -> None:
         conn = None
         timestamp = time.time()
         try:
-            conn = self._get_db_connection()
+            conn = self.get_db_connection()
             c = conn.cursor()
             c.execute(
                 """
@@ -195,13 +195,13 @@ class Broker:
                 conn.rollback()
         finally:
             if conn:
-                self._close_db_connection(conn)
+                self.close_db_connection(conn)
 
     # noinspection PyShadowingNames
     def get_clients(self) -> List[Dict[str, Any]]:
         conn = None
         try:
-            conn = self._get_db_connection()
+            conn = self.get_db_connection()
             c = conn.cursor()
             # --- MODIFICATION ---
             c.execute(
@@ -221,13 +221,13 @@ class Broker:
             return []
         finally:
             if conn:
-                self._close_db_connection(conn)
+                self.close_db_connection(conn)
 
     # noinspection PyShadowingNames
     def get_messages(self) -> List[Dict[str, Any]]:
         conn = None
         try:
-            conn = self._get_db_connection()
+            conn = self.get_db_connection()
             c = conn.cursor()
             # --- MODIFICATION ---
             c.execute(
@@ -252,13 +252,13 @@ class Broker:
             return []
         finally:
             if conn:
-                self._close_db_connection(conn)
+                self.close_db_connection(conn)
 
     # noinspection PyShadowingNames
     def get_consumptions(self) -> List[Dict[str, Any]]:
         conn = None
         try:
-            conn = self._get_db_connection()
+            conn = self.get_db_connection()
             c = conn.cursor()
             # --- MODIFICATION ---
             c.execute(
@@ -283,7 +283,7 @@ class Broker:
             return []
         finally:
             if conn:
-                self._close_db_connection(conn)
+                self.close_db_connection(conn)
 
 
 # Create the Broker instance with the real database filename
@@ -418,7 +418,7 @@ def graph_state() -> flask.Response:
     """
     conn = None
     try:
-        conn = broker._get_db_connection()
+        conn = broker.get_db_connection()
         c = conn.cursor()
 
         # Get all unique producers from messages
@@ -451,10 +451,11 @@ def graph_state() -> flask.Response:
 
     except sqlite3.Error as e:
         logger.error(f"Database error retrieving graph state: {e}")
+        # noinspection PyTypeChecker
         return jsonify({"error": "Failed to retrieve graph state"}), 500
     finally:
         if conn:
-            broker._close_db_connection(conn)
+            broker.close_db_connection(conn)
 
 
 def main() -> None:
