@@ -32,9 +32,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Simulation de forces D3
     const simulation = d3.forceSimulation()
-        .force("link", d3.forceLink().id(d => d.id).distance(150))
+        .force("link", d3.forceLink().id(d => d.id).distance(150).strength(0.5))
         .force("charge", d3.forceManyBody().strength(-400))
-        .force("center", d3.forceCenter(width / 2, height / 2));
+        .force("x", d3.forceX(width / 2).strength(0.05))
+        .force("y", d3.forceY(height / 2).strength(0.05));
 
     // --- Gestion des données du graphe ---
     let nodes = [];
@@ -45,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (id.startsWith('producer-')) return 'producer';
         if (id.startsWith('topic-')) return 'topic';
         if (id.startsWith('consumer-')) return 'consumer';
+        return 'unknown';
     }
 
     // Fonction pour ajouter un nœud s'il n'existe pas
@@ -53,7 +55,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const newNode = { id, type, name: id.split('-').slice(1).join('-') };
             nodes.push(newNode);
             nodeMap.set(id, newNode);
+            return true; // Indique qu'un noeud a été ajouté
         }
+        return false;
     }
 
     // Fonction pour ajouter un lien
@@ -82,14 +86,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 enter => {
                     const nodeEnter = enter.append("g")
                         .attr("class", d => `node ${d.type}`)
-                        .call(drag(simulation)); // Ajoute le drag & drop
+                        .call(drag(simulation));
 
                     nodeEnter.append("circle")
                         .attr("r", radius);
 
-                    // Connecteurs IN/OUT (ici visuels, non fonctionnels pour les liens)
-                    nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40"); // IN (orange)
-                    nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745"); // OUT (vert)
+                    nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40");
+                    nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745");
 
                     nodeEnter.append("text")
                         .attr("dy", ".35em")
@@ -111,7 +114,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // 3. Relancer la simulation avec les nouvelles données
         simulation.nodes(nodes).on("tick", ticked);
         simulation.force("link").links(links);
-        simulation.alpha(1).restart(); // "Réchauffe" la simulation
+        simulation.alpha(0.3).restart();
 
         function ticked() {
             link
@@ -152,6 +155,40 @@ document.addEventListener("DOMContentLoaded", () => {
           .on("end", dragended);
     }
 
+    // ✨ --- NOUVELLE FONCTION DE POSITIONNEMENT --- ✨
+    function positionNodes() {
+        const producers = nodes.filter(n => n.type === 'producer');
+        const consumers = nodes.filter(n => n.type === 'consumer');
+        const topics = nodes.filter(n => n.type === 'topic');
+
+        const horizontalRadius = width / 3;
+        const verticalRadius = height / 3;
+
+        // Positionner les producteurs sur un arc à gauche
+        const producerAngleStep = Math.PI / (producers.length + 1);
+        producers.forEach((node, i) => {
+            const angle = Math.PI / 2 + (i + 1) * producerAngleStep;
+            if (node.fx == null) node.x = width / 2 - horizontalRadius * Math.sin(angle);
+            if (node.fy == null) node.y = height / 2 - verticalRadius * Math.cos(angle);
+        });
+
+        // Positionner les consommateurs sur un arc à droite
+        const consumerAngleStep = Math.PI / (consumers.length + 1);
+        consumers.forEach((node, i) => {
+            const angle = Math.PI / 2 + (i + 1) * consumerAngleStep;
+            if (node.fx == null) node.x = width / 2 + horizontalRadius * Math.sin(angle);
+            if (node.fy == null) node.y = height / 2 - verticalRadius * Math.cos(angle);
+        });
+
+        // Positionner les topics au centre sur une ligne verticale
+        const topicYStep = (height / 2) / (topics.length + 1);
+        topics.forEach((node, i) => {
+            // On fixe la position des topics pour qu'ils servent d'ancres
+            node.fx = width / 2;
+            node.fy = (height / 4) + (i + 1) * topicYStep;
+        });
+    }
+
     // --- Initialisation du graphe ---
     async function initializeGraph() {
         const response = await fetch('/graph/state');
@@ -160,52 +197,53 @@ document.addEventListener("DOMContentLoaded", () => {
         state.producers.forEach(p => addNode(`producer-${p}`, 'producer'));
         state.topics.forEach(t => addNode(`topic-${t}`, 'topic'));
         state.consumers.forEach(c => addNode(`consumer-${c}`, 'consumer'));
-        state.links.forEach(l => {
-            const sourceId = `${getNodeType(l.source)}-${l.source}`;
-            const targetId = `${getNodeType(l.target)}-${l.target}`;
-            addLink(sourceId, targetId, l.type);
-        });
 
-        // Positionnement initial en cercle pour un démarrage propre
-        const numNodes = nodes.length;
-        const angleStep = (2 * Math.PI) / numNodes;
-        nodes.forEach((node, i) => {
-            node.x = width / 2 + (width / 3) * Math.cos(i * angleStep);
-            node.y = height / 2 + (height / 3) * Math.sin(i * angleStep);
+        positionNodes(); // Appeler la nouvelle fonction de positionnement
+
+        state.links.forEach(l => {
+            const sourcePrefix = l.type === 'publish' ? 'producer' : 'topic';
+            const targetPrefix = l.type === 'publish' ? 'topic' : 'consumer';
+            const sourceId = `${sourcePrefix}-${l.source}`;
+            const targetId = `${targetPrefix}-${l.target}`;
+            // Vérifie que les nœuds existent bien avant de créer le lien
+            if (nodeMap.has(sourceId) && nodeMap.has(targetId)) {
+                addLink(sourceId, targetId, l.type);
+            }
         });
 
         updateGraph();
     }
 
     // --- Connexion WebSocket ---
-    socket.on('connect', () => {
-        console.log('Connected to activity stream.');
-    });
+    socket.on('connect', () => console.log('Connected to activity stream.'));
 
     socket.on('new_message', (data) => { // PUBLISH
         const producerId = `producer-${data.producer}`;
         const topicId = `topic-${data.topic}`;
-        addNode(producerId, 'producer');
-        addNode(topicId, 'topic');
+        const isNewProducer = addNode(producerId, 'producer');
+        const isNewTopic = addNode(topicId, 'topic');
         addLink(producerId, topicId, 'publish');
+        if (isNewProducer || isNewTopic) positionNodes(); // Repositionne si des nœuds sont ajoutés
         updateGraph();
     });
 
     socket.on('new_consumption', (data) => { // CONSUME
         const topicId = `topic-${data.topic}`;
         const consumerId = `consumer-${data.consumer}`;
-        addNode(topicId, 'topic');
-        addNode(consumerId, 'consumer');
+        const isNewTopic = addNode(topicId, 'topic');
+        const isNewConsumer = addNode(consumerId, 'consumer');
         addLink(topicId, consumerId, 'consume');
+        if (isNewTopic || isNewConsumer) positionNodes(); // Repositionne si des nœuds sont ajoutés
         updateGraph();
     });
 
-    socket.on('new_client', (data) => { // SUBSCRIBE (crée le nœud en avance)
+    socket.on('new_client', (data) => { // SUBSCRIBE
         const consumerId = `consumer-${data.consumer}`;
         const topicId = `topic-${data.topic}`;
-        addNode(consumerId, 'consumer');
-        addNode(topicId, 'topic');
+        const isNewConsumer = addNode(consumerId, 'consumer');
+        const isNewTopic = addNode(topicId, 'topic');
         addLink(topicId, consumerId, 'consume');
+        if (isNewConsumer || isNewTopic) positionNodes(); // Repositionne si des nœuds sont ajoutés
         updateGraph();
     });
 
