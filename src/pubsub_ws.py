@@ -412,6 +412,9 @@ def handle_consumed(data: Dict[str, Any]) -> None:
     logger.info(f"Handling consumption by {consumer} for message {message_id} in topic {topic}")
     broker.save_consumption(str(consumer), str(topic), str(message_id), str(message))
 
+    # ✨ LIGNE À AJOUTER ✨
+    # Rediffuse l'événement à tous les clients pour mettre à jour les graphes.
+    socketio.emit("consumed", data)
 
 @socketio.on("disconnect")
 def handle_disconnect() -> None:  # <-- Signature without explicit argument for the SID
