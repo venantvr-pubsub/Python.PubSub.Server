@@ -17,11 +17,12 @@ document.addEventListener("DOMContentLoaded", () => {
         .enter().append("marker")
         .attr("id", d => `arrow-${d}`)
         .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 15) // Ajusté pour les courbes
+        // ✨ CORRECTION 1: Ajustement de la position pour s'aligner sur le bord du cercle
+        .attr("refX", 2)
         .attr("refY", 0)
         .attr("markerWidth", 6)
         .attr("markerHeight", 6)
-        .attr("orient", "auto-start-reverse") // Mieux pour les courbes
+        .attr("orient", "auto-start-reverse")
         .append("path")
         .attr("d", "M0,-5L10,0L0,5")
         .style("fill", d => d === 'publish' ? '#28a745' : '#ffab40');
@@ -34,9 +35,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Gestion des données du graphe ---
     let nodes = [];
-    const nodeMap = new Map(); // Assure le principe de singleton pour les entités
+    const nodeMap = new Map();
 
-    // Fonction pour ajouter un nœud s'il n'existe pas
     function addNode(id, type) {
         if (!nodeMap.has(id)) {
             const newNode = {id, type, name: id.split('-').slice(1).join('-')};
@@ -47,27 +47,35 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
     }
 
-    // ✨ NOUVEAU : Fonction pour calculer le chemin d'une flèche arrondie
+    // ✨ CORRECTION 2: La fonction calcule maintenant le chemin vers le BORD du cercle
     function calculateCurvedPath(source, target) {
         const dx = target.x - source.x;
         const dy = target.y - source.y;
-        const dr = Math.sqrt(dx * dx + dy * dy);
-        // "M" = MovoTo, "A" = Elliptical Arc
-        return `M${source.x},${source.y}A${dr},${dr} 0 0,1 ${target.x},${target.y}`;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance === 0) return ""; // Évite la division par zéro
+
+        // Calcule le point sur la circonférence du cercle cible
+        const targetX = target.x - (dx / distance) * radius;
+        const targetY = target.y - (dy / distance) * radius;
+
+        const newDx = targetX - source.x;
+        const newDy = targetY - source.y;
+        const newDr = Math.sqrt(newDx * newDx + newDy * newDy);
+
+        return `M${source.x},${source.y}A${newDr},${newDr} 0 0,1 ${targetX},${targetY}`;
     }
 
-    // Fonction pour dessiner les flèches temporaires
     function drawTemporaryArrow(sourceId, targetId, type) {
         const sourceNode = nodeMap.get(sourceId);
         const targetNode = nodeMap.get(targetId);
         if (!sourceNode || !targetNode) return;
 
-        // On utilise <path> au lieu de <line>
         const tempLink = linkGroup.append("path")
             .datum({source: sourceNode, target: targetNode})
             .attr("class", `link ${type}`)
             .attr("marker-end", `url(#arrow-${type})`)
-            .attr("d", calculateCurvedPath(sourceNode, targetNode)); // Applique le chemin arrondi
+            .attr("d", calculateCurvedPath(sourceNode, targetNode));
 
         tempLink.transition()
             .duration(2000)
@@ -75,7 +83,6 @@ document.addEventListener("DOMContentLoaded", () => {
             .remove();
     }
 
-    // --- Fonction de mise à jour du rendu ---
     function updateGraph() {
         nodeGroup.selectAll(".node")
             .data(nodes, d => d.id)
@@ -93,15 +100,11 @@ document.addEventListener("DOMContentLoaded", () => {
         simulation.alpha(0.3).restart();
     }
 
-    // Fonction appelée à chaque "tick" de la simulation
     function ticked() {
         nodeGroup.selectAll('.node').attr("transform", d => `translate(${d.x},${d.y})`);
-
-        // Met à jour le chemin arrondi de TOUTES les flèches existantes
         linkGroup.selectAll('path').attr("d", d => calculateCurvedPath(d.source, d.target));
     }
 
-    // --- Interactivité (Zoom et Drag) ---
     const zoom = d3.zoom().on("zoom", (event) => g.attr("transform", event.transform));
     svg.call(zoom);
 
@@ -115,19 +118,16 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         function dragended(event, d) {
             if (!event.active) simulation.alphaTarget(0);
-            d.fx = null; d.fy = null;
+d.fx = null; d.fy = null;
         }
         return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 
-    // ✨ NOUVEAU : Positionnement initial des nœuds en cercle
     function positionNodes() {
         const numNodes = nodes.length;
         if (numNodes === 0) return;
-
         const angleStep = (2 * Math.PI) / numNodes;
         const circleRadius = Math.min(width, height) / 3;
-
         nodes.forEach((node, i) => {
             if (node.fx == null) {
                 const angle = i * angleStep;
@@ -137,20 +137,16 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // --- Initialisation du graphe ---
     async function initializeGraph() {
         const response = await fetch('/graph/state');
         const state = await response.json();
-
         state.producers.forEach(p => addNode(`producer-${p}`, 'producer'));
         state.topics.forEach(t => addNode(`topic-${t}`, 'topic'));
         state.consumers.forEach(c => addNode(`consumer-${c}`, 'consumer'));
-
         positionNodes();
         updateGraph();
     }
 
-    // --- Connexion WebSocket ---
     socket.on('connect', () => console.log('Connected to activity stream.'));
 
     socket.on('new_message', (data) => {

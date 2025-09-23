@@ -8,7 +8,7 @@ from os import path
 from typing import Any, Dict, List, Optional, Tuple
 
 import flask
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
 
 # Configure logging for debugging
@@ -335,10 +335,15 @@ def consumptions() -> flask.Response:
     return jsonify(broker.get_consumptions())
 
 
-@app.route("/client.html")
-def serve_client() -> flask.Response:
-    logger.info("Serving client.html")
-    return send_from_directory(".", "client.html")
+@app.route("/")
+def index() -> flask.Response:
+    return redirect("/control-panel.html")
+
+
+@app.route("/control-panel.html")
+def serve_control_panel() -> flask.Response:
+    logger.info("Serving control-panel.html")
+    return send_from_directory(".", "control-panel.html")
 
 
 @app.route("/static/<path:filename>")
@@ -347,22 +352,22 @@ def serve_static(filename: str) -> flask.Response:
     return send_from_directory("static", filename)
 
 
-@app.route("/activity.html")
-def serve_activity() -> flask.Response:
-    logger.info("Serving activity.html")
-    return send_from_directory(".", "activity.html")
+@app.route("/activity-map.html")
+def serve_activity_map() -> flask.Response:
+    logger.info("Serving activity-map.html")
+    return send_from_directory(".", "activity-map.html")
 
 
-@app.route("/graph.html")
-def serve_graph() -> flask.Response:
-    logger.info("Serving graph.html")
-    return send_from_directory(".", "graph.html")
+@app.route("/network-graph.html")
+def serve_network_graph() -> flask.Response:
+    logger.info("Serving network-graph.html")
+    return send_from_directory(".", "network-graph.html")
 
 
-@app.route("/final.html")
-def serve_final() -> flask.Response:
-    logger.info("Serving final.html")
-    return send_from_directory(".", "final.html")
+@app.route("/circular-graph.html")
+def serve_circular_graph() -> flask.Response:
+    logger.info("Serving circular-graph.html")
+    return send_from_directory(".", "circular-graph.html")
 
 
 @socketio.on("subscribe")
