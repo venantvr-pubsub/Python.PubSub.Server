@@ -416,6 +416,7 @@ def handle_consumed(data: Dict[str, Any]) -> None:
     # Rediffuse l'événement à tous les clients pour mettre à jour les graphes.
     socketio.emit("consumed", data)
 
+
 @socketio.on("disconnect")
 def handle_disconnect() -> None:  # <-- Signature without explicit argument for the SID
     """Handle client disconnection."""
