@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Définition des pointes de flèches
     svg.append("defs").selectAll("marker")
-        .data(["publish", "consume"])
+        .data(["publish", "consume", "consumed"])
         .enter().append("marker")
         .attr("id", d => `arrow-${d}`)
         .attr("viewBox", "0 -5 10 10")
@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .attr("orient", "auto-start-reverse")
         .append("path")
         .attr("d", "M0,-5L10,0L0,5")
-        .style("fill", d => d === 'publish' ? '#28a745' : '#ffab40');
+        .style("fill", d => d === 'publish' ? '#28a745' : d === 'consume' ? '#ffab40' : '#dc3545');
 
     // Simulation de forces D3
     const simulation = d3.forceSimulation()
@@ -176,6 +176,17 @@ d.fx = null; d.fy = null;
         const topicId = `topic-${data.topic}`;
         const needsReposition = addNode(consumerId, 'consumer') || addNode(topicId, 'topic');
         drawTemporaryArrow(topicId, consumerId, 'consume');
+        if (needsReposition) {
+            positionNodes();
+            updateGraph();
+        }
+    });
+
+    socket.on('consumed', (data) => {
+        const topicId = `topic-${data.topic}`;
+        const consumerId = `consumer-${data.consumer}`;
+        const needsReposition = addNode(topicId, 'topic') || addNode(consumerId, 'consumer');
+        drawTemporaryArrow(topicId, consumerId, 'consumed');
         if (needsReposition) {
             positionNodes();
             updateGraph();

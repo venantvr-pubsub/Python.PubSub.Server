@@ -90,12 +90,13 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             // --- FIN DE L'AJOUT ---
 
-            socket.emit("consumed", {
-                topic: data.topic,
-                message_id: data.message_id,
-                message: data.message,
-                consumer: consumer
-            });
+            // Don't emit consumed here - let the handler do it
+            // socket.emit("consumed", {
+            //     topic: data.topic,
+            //     message_id: data.message_id,
+            //     message: data.message,
+            //     consumer: consumer
+            // });
         });
 
         socket.on("disconnect", () => console.log("Disconnected from server."));
@@ -103,6 +104,10 @@ document.addEventListener("DOMContentLoaded", () => {
         socket.on("new_client", () => refreshClients());
         socket.on("client_disconnected", () => refreshClients());
         socket.on("new_consumption", () => refreshConsumptions());
+        socket.on("consumed", (data) => {
+            console.log(`Consumed by handler: ${data.consumer} - Topic: ${data.topic} - Message ID: ${data.message_id}`);
+            refreshConsumptions();
+        });
     });
 
     document.getElementById("pubBtn").addEventListener("click", () => {
