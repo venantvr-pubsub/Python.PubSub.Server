@@ -34,10 +34,10 @@ COPY src/ /app/src/
 # Copie les fichiers web dans /app/src, pour que send_from_directory(".", ...) les trouve.
 COPY static/ /app/src/static/
 COPY migrations/ /app/src/migrations/
-COPY client.html /app/src/client.html
-COPY activity.html /app/src/activity.html
-COPY graph.html /app/src/graph.html
-COPY final.html /app/src/final.html
+COPY control-panel.html /app/src/control-panel.html
+COPY activity-map.html /app/src/activity-map.html
+COPY network-graph.html /app/src/network-graph.html
+COPY circular-graph.html /app/src/circular-graph.html
 
 # Création de l'utilisateur non-root
 # On lui donne les droits sur /app entier
