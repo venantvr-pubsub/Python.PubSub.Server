@@ -360,7 +360,7 @@ def serve_graph() -> flask.Response:
 
 
 @app.route("/final.html")
-def serve_graph() -> flask.Response:
+def serve_final() -> flask.Response:
     logger.info("Serving final.html")
     return send_from_directory(".", "final.html")
 
