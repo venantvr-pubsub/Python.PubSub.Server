@@ -359,6 +359,12 @@ def serve_graph() -> flask.Response:
     return send_from_directory(".", "graph.html")
 
 
+@app.route("/final.html")
+def serve_graph() -> flask.Response:
+    logger.info("Serving final.html")
+    return send_from_directory(".", "final.html")
+
+
 @socketio.on("subscribe")
 def handle_subscribe(data: Dict[str, Any]) -> None:
     consumer = data.get("consumer")
