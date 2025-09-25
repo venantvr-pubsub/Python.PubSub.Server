@@ -2,7 +2,7 @@
  * circular-graph.js
  * Configure et initialise un graphe avec une disposition circulaire.
  */
-import { createGraph } from './common-graph.js';
+// import { createGraph } from './common-graph.js';
 
 document.addEventListener("DOMContentLoaded", () => {
     // Helper pour calculer le chemin courbé des flèches

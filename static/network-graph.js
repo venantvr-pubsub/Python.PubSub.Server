@@ -2,7 +2,7 @@
  * network-graph.js
  * Configure et initialise un graphe avec une disposition "réseau" par rôles.
  */
-import { createGraph } from './common-graph.js';
+// import { createGraph } from './common-graph.js';
 
 document.addEventListener("DOMContentLoaded", () => {
     // Configuration spécifique au graphe réseau
