@@ -55,12 +55,41 @@
         return isNewNode;
     }
 
-    function drawTemporaryArrow(sourceId, targetId, type) {
+    /* function drawTemporaryArrow(sourceId, targetId, type) {
         const sourceNode = nodeMap.get(sourceId);
         const targetNode = nodeMap.get(targetId);
         if (!sourceNode || !targetNode) return;
 
         // Appelle la fonction de dessin de lien fournie par la configuration.
+        const tempLink = config.drawLink(linkGroup, sourceNode, targetNode, type);
+
+        tempLink.transition()
+            .duration(2000)
+            .style("opacity", 0)
+            .remove();
+    } */
+
+    function drawTemporaryArrow(sourceId, targetId, type) {
+        const sourceNode = nodeMap.get(sourceId);
+        const targetNode = nodeMap.get(targetId);
+        if (!sourceNode || !targetNode) return;
+
+        // --- AJOUT DE L'EFFET BLINK ---
+        // 1. On sélectionne le groupe (<g>) du nœud cible grâce à son ID.
+        const targetNodeElement = nodeGroup.selectAll('.node')
+            .filter(d => d.id === targetId);
+
+        if (!targetNodeElement.empty()) {
+            // 2. On ajoute la classe CSS 'blink' pour déclencher l'animation.
+            targetNodeElement.classed('blink', true);
+
+            // 3. On retire la classe après 500ms pour que l'effet puisse être rejoué.
+            setTimeout(() => {
+                targetNodeElement.classed('blink', false);
+            }, 500);
+        }
+        // --- FIN DE L'AJOUT ---
+
         const tempLink = config.drawLink(linkGroup, sourceNode, targetNode, type);
 
         tempLink.transition()

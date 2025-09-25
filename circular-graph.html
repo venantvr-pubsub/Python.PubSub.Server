@@ -64,6 +64,21 @@
             fill: #f8f9fa; /* Texte clair */
             text-shadow: 0 1px 0 #343a40, 1px 0 0 #343a40, 0 -1px 0 #343a40, -1px 0 0 #343a40;
         }
+
+        /* Animation pour l'effet lumineux */
+        @keyframes blink-effect {
+          50% {
+            fill: #ffffff; /* Fait clignoter l'intérieur en blanc */
+            stroke: #ffffff; /* Ajoute une bordure blanche */
+            stroke-width: 4px; /* Épaisseur de la bordure pour l'effet "glow" */
+          }
+        }
+
+        /* Classe à appliquer sur le nœud pour déclencher l'animation */
+        .node.blink circle {
+          /* Durée de 500ms (une demi-seconde), animation fluide */
+          animation: blink-effect 500ms ease-out;
+        }
     </style>
 </head>
 <body class="p-4">
