@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!node) {
             // Le nœud n'existe pas, on le crée avec un tableau de rôles
-            node = { id: id, name: id, roles: [role] };
+            node = {id: id, name: id, roles: [role]};
             nodes.push(node);
             nodeMap.set(id, node);
             isNewNode = true;
@@ -139,15 +139,18 @@ document.addEventListener("DOMContentLoaded", () => {
             d.fx = d.x;
             d.fy = d.y;
         }
+
         function dragged(event, d) {
             d.fx = event.x;
             d.fy = event.y;
         }
+
         function dragended(event, d) {
             if (!event.active) simulation.alphaTarget(0);
             d.fx = null;
             d.fy = null;
         }
+
         return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 

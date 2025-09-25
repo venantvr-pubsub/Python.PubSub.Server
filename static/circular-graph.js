@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (!node) {
             // Le nœud n'existe pas, on le crée
-            node = { id: id, name: id, roles: [role] };
+            node = {id: id, name: id, roles: [role]};
             nodes.push(node);
             nodeMap.set(id, node);
             isNewNode = true;
@@ -124,15 +124,21 @@ document.addEventListener("DOMContentLoaded", () => {
     const drag = simulation => {
         function dragstarted(event, d) {
             if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x; d.fy = d.y;
+            d.fx = d.x;
+            d.fy = d.y;
         }
+
         function dragged(event, d) {
-            d.fx = event.x; d.fy = event.y;
+            d.fx = event.x;
+            d.fy = event.y;
         }
+
         function dragended(event, d) {
             if (!event.active) simulation.alphaTarget(0);
-            d.fx = null; d.fy = null;
+            d.fx = null;
+            d.fy = null;
         }
+
         return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 
@@ -142,12 +148,18 @@ document.addEventListener("DOMContentLoaded", () => {
         if (numNodes === 0) return;
         const angleStep = (2 * Math.PI) / numNodes;
         const circleRadius = Math.min(width, height) / 3;
-        nodes.forEach((node, i) => {
+        /* nodes.forEach((node, i) => {
             if (node.fx == null) {
                 const angle = i * angleStep;
                 node.x = width / 2 + circleRadius * Math.cos(angle);
                 node.y = height / 2 + circleRadius * Math.sin(angle);
             }
+        }); */
+        nodes.forEach((node, i) => {
+            const angle = i * angleStep;
+            // ✨ On assigne les positions FIXES fx et fy
+            node.fx = width / 2 + circleRadius * Math.cos(angle);
+            node.fy = height / 2 + circleRadius * Math.sin(angle);
         });
     }
 
