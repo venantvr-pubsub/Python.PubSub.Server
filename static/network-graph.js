@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Conteneur principal pour le zoom et le pan
     const g = svg.append("g");
 
-    // Groupes pour les liens (temporaires) et les nœuds (permanents)
+    // Groupes pour les liens et les nœuds
     const linkGroup = g.append("g").attr("class", "links");
     const nodeGroup = g.append("g").attr("class", "nodes");
 
@@ -35,24 +35,34 @@ document.addEventListener("DOMContentLoaded", () => {
         .force("charge", d3.forceManyBody().strength(-400))
         .force("x", d3.forceX(width / 2).strength(0.05))
         .force("y", d3.forceY(height / 2).strength(0.05))
-        .on("tick", ticked); // L'événement 'tick' met à jour les positions
+        .on("tick", ticked);
 
     // --- Gestion des données du graphe ---
     let nodes = [];
     const nodeMap = new Map();
 
-    // Fonction pour ajouter un nœud s'il n'existe pas
-    function addNode(id, type) {
-        if (!nodeMap.has(id)) {
-            const newNode = {id, type, name: id.split('-').slice(1).join('-')};
-            nodes.push(newNode);
-            nodeMap.set(id, newNode);
-            return true;
+    /**
+     * ✅ NOUVELLE FONCTION : Crée un nœud s'il n'existe pas,
+     * ou lui ajoute un nouveau rôle s'il existe déjà.
+     */
+    function addOrUpdateNode(id, role) {
+        let node = nodeMap.get(id);
+        let isNewNode = false;
+
+        if (!node) {
+            // Le nœud n'existe pas, on le crée avec un tableau de rôles
+            node = { id: id, name: id, roles: [role] };
+            nodes.push(node);
+            nodeMap.set(id, node);
+            isNewNode = true;
+        } else if (!node.roles.includes(role)) {
+            // Le nœud existe mais n'a pas ce rôle, on l'ajoute
+            node.roles.push(role);
         }
-        return false;
+        return isNewNode; // On retourne true seulement si le nœud est vraiment nouveau
     }
 
-    // Fonction pour dessiner les flèches temporaires
+    // Fonction pour dessiner les flèches temporaires (inchangée)
     function drawTemporaryArrow(sourceId, targetId, type) {
         const sourceNode = nodeMap.get(sourceId);
         const targetNode = nodeMap.get(targetId);
@@ -63,7 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const tempLink = linkGroup.append("line")
-            // ✨ MODIFICATION 1: Attacher les données des nœuds à la flèche
             .datum({source: sourceNode, target: targetNode})
             .attr("class", `link ${type}`)
             .attr("marker-end", `url(#arrow-${type})`)
@@ -86,33 +95,33 @@ document.addEventListener("DOMContentLoaded", () => {
             .join(
                 enter => {
                     const nodeEnter = enter.append("g")
-                        .attr("class", d => `node ${d.type}`)
+                        // ✨ MODIFICATION : Les classes CSS sont basées sur le tableau de rôles
+                        .attr("class", d => `node ${d.roles.join(' ')}`)
                         .call(drag(simulation));
 
                     nodeEnter.append("circle").attr("r", radius);
-                    // nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40");
-                    // nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745");
                     nodeEnter.append("text")
                         .attr("dy", ".35em")
                         .attr("x", 0)
                         .attr("y", radius + 15)
-                        .text(d => d.name);
+                        .text(d => d.name); // Le nom est maintenant juste l'ID
 
                     return nodeEnter;
-                }
+                },
+                update =>
+                    // On s'assure que les classes sont mises à jour si un rôle est ajouté
+                    update.attr("class", d => `node ${d.roles.join(' ')}`)
             );
 
         simulation.nodes(nodes);
         simulation.alpha(0.3).restart();
     }
 
-    // Fonction appelée à chaque "tick" de la simulation
+    // Fonction "tick" (inchangée)
     function ticked() {
-        // Met à jour la position des nœuds
         nodeGroup.selectAll('.node')
             .attr("transform", d => `translate(${d.x},${d.y})`);
 
-        // ✨ MODIFICATION 2: Met à jour la position de TOUTES les flèches existantes
         linkGroup.selectAll('line')
             .attr("x1", d => d.source.x)
             .attr("y1", d => d.source.y)
@@ -120,7 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
             .attr("y2", d => d.target.y);
     }
 
-    // --- Interactivité (Zoom et Drag) ---
+    // --- Interactivité (Zoom et Drag) --- (inchangé)
     const zoom = d3.zoom().on("zoom", (event) => g.attr("transform", event.transform));
     svg.call(zoom);
 
@@ -130,26 +139,24 @@ document.addEventListener("DOMContentLoaded", () => {
             d.fx = d.x;
             d.fy = d.y;
         }
-
         function dragged(event, d) {
             d.fx = event.x;
             d.fy = event.y;
         }
-
         function dragended(event, d) {
             if (!event.active) simulation.alphaTarget(0);
             d.fx = null;
             d.fy = null;
         }
-
         return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 
     // --- Positionnement initial des nœuds ---
     function positionNodes() {
-        const producers = nodes.filter(n => n.type === 'producer');
-        const consumers = nodes.filter(n => n.type === 'consumer');
-        const topics = nodes.filter(n => n.type === 'topic');
+        // ✨ MODIFICATION : On filtre les nœuds en regardant dans le tableau `roles`
+        const producers = nodes.filter(n => n.roles.includes('producer'));
+        const consumers = nodes.filter(n => n.roles.includes('consumer'));
+        const topics = nodes.filter(n => n.roles.includes('topic'));
 
         const horizontalRadius = width / 3.5;
         const verticalRadius = height / 3.5;
@@ -183,9 +190,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const response = await fetch('/graph/state');
         const state = await response.json();
 
-        state.producers.forEach(p => addNode(`producer-${p}`, 'producer'));
-        state.topics.forEach(t => addNode(`topic-${t}`, 'topic'));
-        state.consumers.forEach(c => addNode(`consumer-${c}`, 'consumer'));
+        // ✨ MODIFICATION : On utilise la nouvelle fonction sans préfixes
+        state.producers.forEach(p => addOrUpdateNode(p, 'producer'));
+        state.topics.forEach(t => addOrUpdateNode(t, 'topic'));
+        state.consumers.forEach(c => addOrUpdateNode(c, 'consumer'));
 
         positionNodes();
         updateGraph();
@@ -194,52 +202,65 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- Connexion WebSocket ---
     socket.on('connect', () => console.log('Connected to activity stream.'));
 
+    // ✨ TOUS LES GESTIONNAIRES SONT MODIFIÉS CI-DESSOUS
     socket.on('new_message', (data) => {
-        const producerId = `producer-${data.producer}`;
-        const topicId = `topic-${data.topic}`;
-        const isNewProducer = addNode(producerId, 'producer');
-        const isNewTopic = addNode(topicId, 'topic');
+        const producerId = data.producer;
+        const topicId = data.topic;
+
+        const isNewProducer = addOrUpdateNode(producerId, 'producer');
+        const isNewTopic = addOrUpdateNode(topicId, 'topic');
+
         drawTemporaryArrow(producerId, topicId, 'publish');
+
         if (isNewProducer || isNewTopic) {
             positionNodes();
-            updateGraph();
         }
+        updateGraph(); // On met à jour pour afficher les nouveaux rôles éventuels
     });
 
     socket.on('new_consumption', (data) => {
-        const topicId = `topic-${data.topic}`;
-        const consumerId = `consumer-${data.consumer}`;
-        const isNewTopic = addNode(topicId, 'topic');
-        const isNewConsumer = addNode(consumerId, 'consumer');
+        const topicId = data.topic;
+        const consumerId = data.consumer;
+
+        const isNewTopic = addOrUpdateNode(topicId, 'topic');
+        const isNewConsumer = addOrUpdateNode(consumerId, 'consumer');
+
         drawTemporaryArrow(topicId, consumerId, 'consume');
+
         if (isNewTopic || isNewConsumer) {
             positionNodes();
-            updateGraph();
         }
+        updateGraph();
     });
 
     socket.on('new_client', (data) => {
-        const consumerId = `consumer-${data.consumer}`;
-        const topicId = `topic-${data.topic}`;
-        const isNewConsumer = addNode(consumerId, 'consumer');
-        const isNewTopic = addNode(topicId, 'topic');
+        const topicId = data.topic;
+        const consumerId = data.consumer;
+
+        const isNewTopic = addOrUpdateNode(topicId, 'topic');
+        const isNewConsumer = addOrUpdateNode(consumerId, 'consumer');
+
         drawTemporaryArrow(topicId, consumerId, 'consume');
-        if (isNewConsumer || isNewTopic) {
+
+        if (isNewTopic || isNewConsumer) {
             positionNodes();
-            updateGraph();
         }
+        updateGraph();
     });
 
     socket.on('consumed', (data) => {
-        const topicId = `topic-${data.topic}`;
-        const consumerId = `consumer-${data.consumer}`;
-        const isNewTopic = addNode(topicId, 'topic');
-        const isNewConsumer = addNode(consumerId, 'consumer');
+        const topicId = data.topic;
+        const consumerId = data.consumer;
+
+        const isNewTopic = addOrUpdateNode(topicId, 'topic');
+        const isNewConsumer = addOrUpdateNode(consumerId, 'consumer');
+
         drawTemporaryArrow(topicId, consumerId, 'consumed');
+
         if (isNewTopic || isNewConsumer) {
             positionNodes();
-            updateGraph();
         }
+        updateGraph();
     });
 
     initializeGraph();
