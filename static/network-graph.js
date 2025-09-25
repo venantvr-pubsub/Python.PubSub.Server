@@ -90,8 +90,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         .call(drag(simulation));
 
                     nodeEnter.append("circle").attr("r", radius);
-                    nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40");
-                    nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745");
+                    // nodeEnter.append("circle").attr("r", 5).attr("cx", -radius).attr("cy", 0).style("fill", "#ffab40");
+                    // nodeEnter.append("circle").attr("r", 5).attr("cx", radius).attr("cy", 0).style("fill", "#28a745");
                     nodeEnter.append("text")
                         .attr("dy", ".35em")
                         .attr("x", 0)
