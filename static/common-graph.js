@@ -5,7 +5,7 @@
  */
 
 // Exporte la fonction principale pour la rendre importable dans d'autres fichiers.
-export function createGraph(config) {
+/* export */ function createGraph(config) {
     // --- Initialisation Socket.io et D3 ---
     const socket = io();
     const svg = d3.select(config.svgSelector);
