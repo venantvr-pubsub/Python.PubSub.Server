@@ -48,9 +48,16 @@
         }
 
         .message-arrow {
-            stroke: #ffab40;
             stroke-width: 2;
             animation: fadeInOut 1s ease-in-out;
+        }
+
+        .message-arrow.publish {
+            stroke: #28a745;
+        }
+
+        .message-arrow.consume {
+            stroke: #ffab40;
         }
 
         @keyframes fadeIn {

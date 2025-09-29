@@ -20,7 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return nodeId;
     };
 
-    const drawArrow = (startId, endId, arrowType = 'default') => {
+    const drawArrow = (startId, endId, arrowType = 'consume') => {
         const startEl = document.getElementById(startId);
         const endEl = document.getElementById(endId);
         if (!startEl || !endEl) return;
@@ -39,7 +39,7 @@ document.addEventListener("DOMContentLoaded", () => {
         line.setAttribute('y1', startY);
         line.setAttribute('x2', endX);
         line.setAttribute('y2', endY);
-        line.setAttribute('class', 'message-arrow');
+        line.setAttribute('class', `message-arrow ${arrowType}`);
 
         // Add arrowhead marker based on type
         line.setAttribute('marker-end', `url(#arrowhead-${arrowType})`);
@@ -54,35 +54,35 @@ document.addEventListener("DOMContentLoaded", () => {
     // Define arrowhead markers in SVG
     const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
 
-    // Default arrowhead (orange)
-    const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-    marker.setAttribute('id', 'arrowhead-default');
-    marker.setAttribute('viewBox', '0 0 10 10');
-    marker.setAttribute('refX', '8');
-    marker.setAttribute('refY', '5');
-    marker.setAttribute('markerWidth', '6');
-    marker.setAttribute('markerHeight', '6');
-    marker.setAttribute('orient', 'auto-start-reverse');
-    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
-    path.setAttribute('fill', '#ffab40');
-    marker.appendChild(path);
-    defs.appendChild(marker);
+    // Publish arrowhead (green)
+    const markerPublish = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    markerPublish.setAttribute('id', 'arrowhead-publish');
+    markerPublish.setAttribute('viewBox', '0 0 10 10');
+    markerPublish.setAttribute('refX', '8');
+    markerPublish.setAttribute('refY', '5');
+    markerPublish.setAttribute('markerWidth', '6');
+    markerPublish.setAttribute('markerHeight', '6');
+    markerPublish.setAttribute('orient', 'auto-start-reverse');
+    const pathPublish = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathPublish.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    pathPublish.setAttribute('fill', '#28a745');
+    markerPublish.appendChild(pathPublish);
+    defs.appendChild(markerPublish);
 
-    // Consumed arrowhead (red)
-    const markerConsumed = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-    markerConsumed.setAttribute('id', 'arrowhead-consumed');
-    markerConsumed.setAttribute('viewBox', '0 0 10 10');
-    markerConsumed.setAttribute('refX', '8');
-    markerConsumed.setAttribute('refY', '5');
-    markerConsumed.setAttribute('markerWidth', '6');
-    markerConsumed.setAttribute('markerHeight', '6');
-    markerConsumed.setAttribute('orient', 'auto-start-reverse');
-    const pathConsumed = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    pathConsumed.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
-    pathConsumed.setAttribute('fill', '#dc3545');
-    markerConsumed.appendChild(pathConsumed);
-    defs.appendChild(markerConsumed);
+    // Consume arrowhead (orange)
+    const markerConsume = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    markerConsume.setAttribute('id', 'arrowhead-consume');
+    markerConsume.setAttribute('viewBox', '0 0 10 10');
+    markerConsume.setAttribute('refX', '8');
+    markerConsume.setAttribute('refY', '5');
+    markerConsume.setAttribute('markerWidth', '6');
+    markerConsume.setAttribute('markerHeight', '6');
+    markerConsume.setAttribute('orient', 'auto-start-reverse');
+    const pathConsume = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathConsume.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    pathConsume.setAttribute('fill', '#ffab40');
+    markerConsume.appendChild(pathConsume);
+    defs.appendChild(markerConsume);
 
     svg.appendChild(defs);
 
@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log('New Message:', data);
         const producerId = drawNode(data.producer, 'producer', producersCol);
         const topicId = drawNode(data.topic, 'topic', topicsCol);
-        drawArrow(producerId, topicId);
+        drawArrow(producerId, topicId, 'publish');
     });
 
     socket.on('new_consumption', (data) => {
@@ -114,6 +114,6 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log('Consumed:', data);
         const topicId = drawNode(data.topic, 'topic', topicsCol);
         const consumerId = drawNode(data.consumer, 'consumer', consumersCol);
-        drawArrow(topicId, consumerId, 'consumed');
+        drawArrow(topicId, consumerId, 'consume');
     });
 });

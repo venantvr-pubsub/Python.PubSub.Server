@@ -31,7 +31,7 @@
         .attr("orient", config.arrow.orient)
         .append("path")
         .attr("d", "M0,-5L10,0L0,5")
-        .style("fill", d => d === 'publish' ? '#28a745' : d === 'consume' ? '#ffab40' : '#dc3545');
+        .style("fill", d => d === 'publish' ? '#28a745' : '#ffab40');
 
     // --- Data and Simulation ---
     let nodes = [];
