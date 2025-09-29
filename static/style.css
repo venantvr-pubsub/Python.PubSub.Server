@@ -1,9 +1,9 @@
-/* --- 1. MISE EN PAGE FLEXBOX POUR LE DÉFILEMENT --- */
 html, body {
     height: 100vh; /* La base doit prendre toute la hauteur de la vue */
     overflow: hidden; /* Empêche le défilement de la page entière */
     background-color: #282c34;
     color: #ffffff;
+    font-family: monospace;
 }
 
 body {
@@ -17,9 +17,6 @@ body {
     flex-grow: 1; /* Le conteneur principal grandit pour remplir l'espace */
     min-height: 0; /* Correction importante pour le dépassement dans un flex container */
 }
-
-
-/* --- 2. STYLES VISUELS (COULEURS) --- */
 
 h1, h2 {
     color: #61dafb; /* Couleur d'accentuation */
@@ -136,8 +133,6 @@ hr {
     border: 1px solid #4a505a;
     color: #ffffff;
 }
-
-/* --- 3. CORRECTIONS DE MISE EN PAGE SPÉCIFIQUES --- */
 
 /* Correction pour le layout des tableaux */
 .tab-content .table {
