@@ -59,6 +59,7 @@ if __name__ == "__main__":
 
 
 class Broker:
+
     # The broker can receive an existing connection for tests
     def __init__(self, db_name: str, test_conn: Optional[sqlite3.Connection] = None):
         """
