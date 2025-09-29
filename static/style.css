@@ -1,6 +1,6 @@
 html, body {
-    height: 100vh; /* Base must take full viewport height */
-    overflow: hidden; /* Prevents scrolling of entire page */
+    height: 100vh;
+    overflow: hidden;
     background-color: #282c34;
     color: #ffffff;
     font-family: monospace;
@@ -14,12 +14,12 @@ body {
 .container-fluid {
     display: flex;
     flex-direction: column;
-    flex-grow: 1; /* Main container grows to fill space */
-    min-height: 0; /* Important fix for overflow in flex container */
+    flex-grow: 1;
+    min-height: 0;
 }
 
 h1, h2 {
-    color: #61dafb; /* Accent color */
+    color: #61dafb;
 }
 
 h1 {
@@ -33,7 +33,7 @@ hr {
 /* --- Navigation bar --- */
 .navbar {
     background-color: #20232a !important;
-    flex-shrink: 0; /* Prevents navigation bar from shrinking */
+    flex-shrink: 0;
 }
 
 .navbar-brand {
@@ -96,7 +96,7 @@ hr {
 /* --- Tabs --- */
 .nav-tabs {
     border-bottom: 1px solid #61dafb;
-    flex-shrink: 0; /* Prevents tabs from shrinking */
+    flex-shrink: 0;
 }
 
 .nav-tabs .nav-link {
@@ -134,7 +134,6 @@ hr {
     color: #ffffff;
 }
 
-/* Fix for table layouts */
 .tab-content .table {
     table-layout: fixed;
     width: 100%;
@@ -146,9 +145,9 @@ hr {
     overflow-wrap: break-word;
 }
 
-/* Styles for scrollable panels */
+/* --- Scrollable panels --- */
 .tab-content {
-    flex-grow: 1; /* Makes tab area grow */
+    flex-grow: 1;
     min-height: 0;
     display: flex;
 }
@@ -156,10 +155,10 @@ hr {
 .tab-pane {
     width: 100%;
     height: 100%;
-    overflow-y: auto; /* Adds vertical scrollbar if needed */
+    overflow-y: auto;
 }
 
-/* Fixed table headers for better scrolling experience */
+/* Fixed table headers */
 .table thead {
     position: sticky;
     top: 0;
@@ -167,3 +166,60 @@ hr {
     z-index: 1;
 }
 
+/* Tables classiques hors .table Bootstrap */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, .4);
+    background-color: #2b2b2b;
+    color: #d4d4d4;
+}
+
+th, td {
+    border: 1px solid #555;
+    padding: 12px;
+    text-align: left;
+    vertical-align: top;
+}
+
+th {
+    background-color: #0056b3;
+    color: #fff;
+}
+
+tr:nth-child(even) {
+    background-color: #3c3c3c;
+}
+
+/* Status */
+.status-alive {
+    color: #4CAF50;
+    font-weight: 700;
+}
+
+.status-dead {
+    color: #dc3545;
+    font-weight: 700;
+}
+
+/* Logs */
+.logs {
+    font-size: 0.9em;
+    white-space: pre-wrap;
+    max-height: 200px;
+    overflow-y: auto;
+    display: block;
+    background-color: #1e1e1e;
+    border: 1px solid #444;
+    padding: 8px;
+    border-radius: 4px;
+}
+
+.logs ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.logs li {
+    margin-bottom: 4px;
+}
