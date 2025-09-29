@@ -8,36 +8,36 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
     <link href="/static/style.css" rel="stylesheet">
     <style>
-        /* --- Nouveaux styles pour le graphe D3 --- */
+        /* --- New styles for D3 graph --- */
         body {
-            overflow: hidden; /* Empêche le scroll */
+            overflow: hidden; /* Prevents scrolling */
         }
 
         #activity-graph-container {
             width: 100%;
-            height: calc(100vh - 100px); /* Hauteur de la vue moins la barre de nav */
+            height: calc(100vh - 100px); /* Viewport height minus nav bar */
             cursor: grab;
         }
 
-        /* Style des liens (flèches) */
+        /* Link (arrow) styles */
         .link {
             stroke-opacity: 0.6;
             stroke-width: 2px;
         }
 
         .link.publish {
-            stroke: #28a745; /* Vert pour publish */
+            stroke: #28a745; /* Green for publish */
         }
 
         .link.consume {
-            stroke: #ffab40; /* Orange pour subscribe/consume */
+            stroke: #ffab40; /* Orange for subscribe/consume */
         }
 
         .link.consumed {
-            stroke: #dc3545; /* Rouge pour consumed */
+            stroke: #dc3545; /* Red for consumed */
         }
 
-        /* Style des nœuds (disques) */
+        /* Node (disk) styles */
         .node circle {
             stroke: #fff;
             stroke-width: 2px;
@@ -47,28 +47,28 @@
             fill: #007bff;
         }
 
-        /* Bleu pour les producteurs */
+        /* Blue for producers */
         .node.topic circle {
             fill: #6c757d;
         }
 
-        /* Gris pour les topics */
+        /* Gray for topics */
         .node.consumer circle {
             fill: #dc3545;
         }
 
-        /* Rouge pour les consommateurs */
+        /* Red for consumers */
 
-        /* Style du texte des nœuds */
+        /* Node text styles */
         .node text {
             pointer-events: none;
             font-family: sans-serif;
             font-size: 12px;
-            fill: #f8f9fa; /* Texte clair */
+            fill: #f8f9fa; /* Light text */
             text-shadow: 0 1px 0 #343a40, 1px 0 0 #343a40, 0 -1px 0 #343a40, -1px 0 0 #343a40;
         }
 
-        /* Animation pour les liens actifs */
+        /* Animation for active links */
         .link.active {
             animation: pulse 1s ease-out;
         }
@@ -84,18 +84,18 @@
             }
         }
 
-        /* Animation pour l'effet lumineux */
+        /* Animation for glow effect */
         @keyframes blink-effect {
           50% {
-            fill: #ffffff; /* Fait clignoter l'intérieur en blanc */
-            stroke: #ffffff; /* Ajoute une bordure blanche */
-            stroke-width: 4px; /* Épaisseur de la bordure pour l'effet "glow" */
+            fill: #ffffff; /* Makes interior blink white */
+            stroke: #ffffff; /* Adds white border */
+            stroke-width: 4px; /* Border thickness for "glow" effect */
           }
         }
 
-        /* Classe à appliquer sur le nœud pour déclencher l'animation */
+        /* Class to apply on node to trigger animation */
         .node.blink circle {
-          /* Durée de 500ms (une demi-seconde), animation fluide */
+          /* Duration of 500ms (half second), smooth animation */
           animation: blink-effect 500ms ease-out;
         }
     </style>
