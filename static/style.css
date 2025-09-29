@@ -1,6 +1,6 @@
 html, body {
-    height: 100vh; /* La base doit prendre toute la hauteur de la vue */
-    overflow: hidden; /* Empêche le défilement de la page entière */
+    height: 100vh; /* Base must take full viewport height */
+    overflow: hidden; /* Prevents scrolling of entire page */
     background-color: #282c34;
     color: #ffffff;
     font-family: monospace;
@@ -14,12 +14,12 @@ body {
 .container-fluid {
     display: flex;
     flex-direction: column;
-    flex-grow: 1; /* Le conteneur principal grandit pour remplir l'espace */
-    min-height: 0; /* Correction importante pour le dépassement dans un flex container */
+    flex-grow: 1; /* Main container grows to fill space */
+    min-height: 0; /* Important fix for overflow in flex container */
 }
 
 h1, h2 {
-    color: #61dafb; /* Couleur d'accentuation */
+    color: #61dafb; /* Accent color */
 }
 
 h1 {
@@ -30,10 +30,10 @@ hr {
     border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* --- Barre de navigation --- */
+/* --- Navigation bar --- */
 .navbar {
     background-color: #20232a !important;
-    flex-shrink: 0; /* Empêche la barre de navigation de rétrécir */
+    flex-shrink: 0; /* Prevents navigation bar from shrinking */
 }
 
 .navbar-brand {
@@ -50,7 +50,7 @@ hr {
     font-weight: bold;
 }
 
-/* --- Éléments de formulaire --- */
+/* --- Form elements --- */
 .form-control {
     background-color: #3c4049;
     color: #ffffff;
@@ -68,7 +68,7 @@ hr {
     box-shadow: 0 0 0 0.25rem rgba(97, 218, 251, 0.25);
 }
 
-/* --- Boutons --- */
+/* --- Buttons --- */
 .btn-primary {
     background-color: #61dafb;
     border-color: #61dafb;
@@ -93,10 +93,10 @@ hr {
     border-color: #1e7e34;
 }
 
-/* --- Onglets --- */
+/* --- Tabs --- */
 .nav-tabs {
     border-bottom: 1px solid #61dafb;
-    flex-shrink: 0; /* Empêche les onglets de rétrécir */
+    flex-shrink: 0; /* Prevents tabs from shrinking */
 }
 
 .nav-tabs .nav-link {
@@ -115,7 +115,7 @@ hr {
     font-weight: bold;
 }
 
-/* --- Tableaux & Listes --- */
+/* --- Tables & Lists --- */
 .table {
     color: #ffffff;
 }
@@ -134,7 +134,7 @@ hr {
     color: #ffffff;
 }
 
-/* Correction pour le layout des tableaux */
+/* Fix for table layouts */
 .tab-content .table {
     table-layout: fixed;
     width: 100%;
@@ -146,9 +146,9 @@ hr {
     overflow-wrap: break-word;
 }
 
-/* Styles pour les panneaux à défilement */
+/* Styles for scrollable panels */
 .tab-content {
-    flex-grow: 1; /* Fait grandir la zone des onglets */
+    flex-grow: 1; /* Makes tab area grow */
     min-height: 0;
     display: flex;
 }
@@ -156,10 +156,10 @@ hr {
 .tab-pane {
     width: 100%;
     height: 100%;
-    overflow-y: auto; /* Ajoute un ascenseur vertical si nécessaire */
+    overflow-y: auto; /* Adds vertical scrollbar if needed */
 }
 
-/* En-têtes de tableau fixes pour une meilleure expérience de défilement */
+/* Fixed table headers for better scrolling experience */
 .table thead {
     position: sticky;
     top: 0;

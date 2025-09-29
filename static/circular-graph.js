@@ -1,20 +1,20 @@
 /**
  * circular-graph.js
- * Configure et initialise un graphe avec une disposition circulaire.
+ * Configures and initializes a graph with a circular layout.
  */
 // import { createGraph } from './common-graph.js';
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Helper pour calculer le chemin courbé des flèches
+    // Helper to calculate curved arrow paths
     function calculateCurvedPath(source, target) {
-        const radius = 20; // Le rayon des cercles
+        const radius = 20; // Circle radius
         const dx = target.x - source.x;
         const dy = target.y - source.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance === 0) return "";
 
-        // Calcul du point d'arrivée sur le bord du cercle cible
+        // Calculate arrival point on target circle edge
         const targetX = target.x - (dx / distance) * radius;
         const targetY = target.y - (dy / distance) * radius;
 
@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return `M${source.x},${source.y}A${newDr},${newDr} 0 0,1 ${targetX},${targetY}`;
     }
 
-    // Configuration spécifique au graphe circulaire
+    // Circular graph specific configuration
     const circularGraphConfig = {
         svgSelector: "#activity-svg",
         arrow: { refX: 2, orient: "auto-start-reverse" },
@@ -44,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
             nodes.forEach((node, i) => {
                 const angle = i * angleStep;
-                // On fixe la position pour un cercle parfait
+                // Fix position for a perfect circle
                 node.fx = width / 2 + circleRadius * Math.cos(angle);
                 node.fy = height / 2 + circleRadius * Math.sin(angle);
             });
@@ -60,11 +60,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tickHandler: (nodeGroup, linkGroup) => {
             nodeGroup.selectAll('.node').attr("transform", d => `translate(${d.x},${d.y})`);
-            // Met à jour le chemin courbé à chaque tick
+            // Update curved path at each tick
             linkGroup.selectAll('path').attr("d", d => calculateCurvedPath(d.source, d.target));
         }
     };
 
-    // Création du graphe avec sa configuration
+    // Create graph with its configuration
     createGraph(circularGraphConfig);
 });

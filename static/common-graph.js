@@ -1,12 +1,12 @@
 /**
  * common-graph.js
- * Ce fichier contient la logique générique pour créer un graphe D3 interactif
- * mis à jour via WebSockets. Il est configurable pour différents types de layouts et de rendus.
+ * This file contains the generic logic for creating an interactive D3 graph
+ * updated via WebSockets. It is configurable for different types of layouts and renderings.
  */
 
-// Exporte la fonction principale pour la rendre importable dans d'autres fichiers.
+// Export the main function to make it importable in other files.
 /* export */ function createGraph(config) {
-    // --- Initialisation Socket.io et D3 ---
+    // --- Socket.io and D3 initialization ---
     const socket = io();
     const svg = d3.select(config.svgSelector);
     const width = svg.node().getBoundingClientRect().width;
@@ -17,8 +17,8 @@
     const linkGroup = g.append("g").attr("class", "links");
     const nodeGroup = g.append("g").attr("class", "nodes");
 
-    // --- Définition des flèches (Markers) ---
-    // La configuration permet d'ajuster la position de la pointe de flèche.
+    // --- Arrow (Markers) definition ---
+    // Configuration allows adjusting arrow tip position.
     svg.append("defs").selectAll("marker")
         .data(["publish", "consume", "consumed"])
         .enter().append("marker")
@@ -33,13 +33,13 @@
         .attr("d", "M0,-5L10,0L0,5")
         .style("fill", d => d === 'publish' ? '#28a745' : d === 'consume' ? '#ffab40' : '#dc3545');
 
-    // --- Données et Simulation ---
+    // --- Data and Simulation ---
     let nodes = [];
     const nodeMap = new Map();
-    // La simulation est créée en utilisant la fonction fournie dans la configuration.
+    // Simulation is created using the function provided in configuration.
     const simulation = config.createSimulation(width, height);
 
-    // --- Fonctions communes ---
+    // --- Common functions ---
 
     function addOrUpdateNode(id, role) {
         let node = nodeMap.get(id);
@@ -60,7 +60,7 @@
         const targetNode = nodeMap.get(targetId);
         if (!sourceNode || !targetNode) return;
 
-        // Appelle la fonction de dessin de lien fournie par la configuration.
+        // Calls the link drawing function provided by configuration.
         const tempLink = config.drawLink(linkGroup, sourceNode, targetNode, type);
 
         tempLink.transition()
@@ -74,21 +74,21 @@
         const targetNode = nodeMap.get(targetId);
         if (!sourceNode || !targetNode) return;
 
-        // --- AJOUT DE L'EFFET BLINK ---
-        // 1. On sélectionne le groupe (<g>) du nœud cible grâce à son ID.
+        // --- ADDING BLINK EFFECT ---
+        // 1. Select the target node group (<g>) using its ID.
         const targetNodeElement = nodeGroup.selectAll('.node')
             .filter(d => d.id === targetId);
 
         if (!targetNodeElement.empty()) {
-            // 2. On ajoute la classe CSS 'blink' pour déclencher l'animation.
+            // 2. Add CSS class 'blink' to trigger the animation.
             targetNodeElement.classed('blink', true);
 
-            // 3. On retire la classe après 500ms pour que l'effet puisse être rejoué.
+            // 3. Remove the class after 500ms so the effect can be replayed.
             setTimeout(() => {
                 targetNodeElement.classed('blink', false);
             }, 500);
         }
-        // --- FIN DE L'AJOUT ---
+        // --- END OF ADDITION ---
 
         const tempLink = config.drawLink(linkGroup, sourceNode, targetNode, type);
 
@@ -117,10 +117,10 @@
         simulation.alpha(0.3).restart();
     }
 
-    // Le "tick" appelle la fonction de tick spécifique fournie par la configuration.
+    // The "tick" calls the specific tick function provided by configuration.
     simulation.on("tick", () => config.tickHandler(nodeGroup, linkGroup));
 
-    // --- Interactivité (Zoom et Drag) ---
+    // --- Interactivity (Zoom and Drag) ---
 
     const zoom = d3.zoom().on("zoom", (event) => g.attr("transform", event.transform));
     svg.call(zoom);
@@ -143,7 +143,7 @@
         return d3.drag().on("start", dragstarted).on("drag", dragged).on("end", dragended);
     }
 
-    // --- Initialisation et WebSockets ---
+    // --- Initialization and WebSockets ---
 
     async function initializeGraph() {
         const response = await fetch('/graph/state');
@@ -153,7 +153,7 @@
         state.topics.forEach(t => addOrUpdateNode(t, 'topic'));
         state.consumers.forEach(c => addOrUpdateNode(c, 'consumer'));
 
-        // Appelle la fonction de positionnement des nœuds de la configuration.
+        // Calls the node positioning function from configuration.
         config.positionNodes(nodes, width, height);
         updateGraph();
     }
@@ -179,9 +179,9 @@
     socket.on('connect', () => console.log('Connected to activity stream.'));
     socket.on('new_message', (data) => handleWebSocketEvent({ ...data, type: 'publish' }));
     socket.on('new_consumption', (data) => handleWebSocketEvent({ ...data, type: 'consume' }));
-    socket.on('new_client', (data) => handleWebSocketEvent({ ...data, type: 'consume' })); // Assimilé à new_consumption
+    socket.on('new_client', (data) => handleWebSocketEvent({ ...data, type: 'consume' })); // Treated as new_consumption
     socket.on('consumed', (data) => handleWebSocketEvent({ ...data, type: 'consumed' }));
 
-    // Lancement
+    // Launch
     initializeGraph();
 }

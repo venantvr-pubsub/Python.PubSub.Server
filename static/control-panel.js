@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
             item.innerHTML = `<strong>[${data.topic}]</strong> <em>(${data.producer} / ${data.message_id})</em>: ${JSON.stringify(data.message)}`;
             list.prepend(item);
 
-            // --- AJOUT : Limiter la taille de la liste des messages reçus ---
+            // --- ADDITION: Limit size of received messages list ---
             while (list.children.length > MAX_LIST_SIZE) {
                 list.removeChild(list.lastChild);
             }
@@ -153,7 +153,7 @@ document.addEventListener("DOMContentLoaded", () => {
             .then(clients => {
                 const tbody = document.querySelector("#clientsTable tbody");
                 tbody.innerHTML = "";
-                // --- AJOUT : Limiter le nombre de clients affichés ---
+                // --- ADDITION: Limit number of displayed clients ---
                 clients.slice(0, MAX_LIST_SIZE).forEach(c => {
                     const tr = document.createElement("tr");
                     tr.innerHTML = `<td>${c.consumer}</td><td>${c.topic}</td><td>${formatTimestamp(c.connected_at)}</td>`;
@@ -171,7 +171,7 @@ document.addEventListener("DOMContentLoaded", () => {
             .then(messages => {
                 const tbody = document.querySelector("#messagesTable tbody");
                 tbody.innerHTML = "";
-                // --- AJOUT : Limiter le nombre de messages affichés ---
+                // --- ADDITION: Limit number of displayed messages ---
                 messages.slice(0, MAX_LIST_SIZE).forEach(m => {
                     const tr = document.createElement("tr");
                     tr.innerHTML = `<td>${m.producer}</td><td>${m.topic}</td><td>${JSON.stringify(m.message)}</td><td>${formatTimestamp(m.timestamp)}</td>`;

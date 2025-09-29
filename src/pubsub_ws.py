@@ -211,7 +211,7 @@ class Broker:
                 LIMIT 100
             """
             )
-            # --- FIN DE LA MODIFICATION ---
+            # --- END OF MODIFICATION ---
             rows = c.fetchall()
             clients = [{"consumer": r[0], "topic": r[1], "connected_at": r[2]} for r in rows]
             logger.info(f"Retrieved {len(clients)} connected clients")
@@ -238,7 +238,7 @@ class Broker:
                 LIMIT 100
             """
             )
-            # --- FIN DE LA MODIFICATION ---
+            # --- END OF MODIFICATION ---
             rows = c.fetchall()
             messages = [
                 {"topic": r[0], "message_id": r[1], "message": json.loads(r[2]), "producer": r[3],
@@ -269,7 +269,7 @@ class Broker:
                 LIMIT 100
             """
             )
-            # --- FIN DE LA MODIFICATION ---
+            # --- END OF MODIFICATION ---
             rows = c.fetchall()
             consumptions = [
                 {"consumer": r[0], "topic": r[1], "message_id": r[2], "message": json.loads(r[3]),
@@ -412,8 +412,8 @@ def handle_consumed(data: Dict[str, Any]) -> None:
     logger.info(f"Handling consumption by {consumer} for message {message_id} in topic {topic}")
     broker.save_consumption(str(consumer), str(topic), str(message_id), str(message))
 
-    # ✨ LIGNE À AJOUTER ✨
-    # Rediffuse l'événement à tous les clients pour mettre à jour les graphes.
+    # ✨ LINE TO ADD ✨
+    # Rebroadcast the event to all clients to update graphs.
     socketio.emit("consumed", data)
 
 

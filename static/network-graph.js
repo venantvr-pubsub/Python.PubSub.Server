@@ -1,11 +1,11 @@
 /**
  * network-graph.js
- * Configure et initialise un graphe avec une disposition "réseau" par rôles.
+ * Configures and initializes a graph with a "network" layout by roles.
  */
 // import { createGraph } from './common-graph.js';
 
 document.addEventListener("DOMContentLoaded", () => {
-    // Configuration spécifique au graphe réseau
+    // Network graph specific configuration
     const networkGraphConfig = {
         svgSelector: "#activity-svg",
         arrow: { refX: 30, orient: "auto" },
@@ -24,17 +24,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const horizontalRadius = width / 3.5;
 
-            // Positionner les producteurs à gauche
+            // Position producers on the left
             producers.forEach((node) => {
                 if (node.fx == null) node.x = width / 2 - horizontalRadius;
             });
 
-            // Positionner les consommateurs à droite
+            // Position consumers on the right
             consumers.forEach((node) => {
                 if (node.fx == null) node.x = width / 2 + horizontalRadius;
             });
 
-            // Positionner les topics au centre (position fixée)
+            // Position topics in center (fixed position)
             const topicYStep = (height / 2) / (topics.length + 1);
             topics.forEach((node, i) => {
                 node.fx = width / 2;
@@ -56,7 +56,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tickHandler: (nodeGroup, linkGroup) => {
             nodeGroup.selectAll('.node').attr("transform", d => `translate(${d.x},${d.y})`);
-            // Met à jour les lignes droites à chaque tick
+            // Update straight lines at each tick
             linkGroup.selectAll('line')
                 .attr("x1", d => d.source.x)
                 .attr("y1", d => d.source.y)
@@ -65,6 +65,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
-    // Création du graphe avec sa configuration
+    // Create graph with its configuration
     createGraph(networkGraphConfig);
 });
