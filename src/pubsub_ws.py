@@ -3,6 +3,7 @@
 import json
 import logging
 import sqlite3
+import threading
 import time
 from os import path
 from typing import Any, Dict, List, Optional, Tuple
@@ -70,12 +71,31 @@ class Broker:
         """
         self.db_name = db_name
         self._test_conn = test_conn  # Store test connection
+        self._db_lock = threading.Lock()  # Lock for thread-safe DB access
 
     def get_db_connection(self) -> sqlite3.Connection:
         """Helper to get a database connection. Uses test_conn if available."""
+        # Only use test_conn if we're in the same thread that created it
         if self._test_conn:
-            return self._test_conn  # Return test connection
-        return sqlite3.connect(self.db_name)
+            import threading
+
+            # Check if we're in the main thread (where test_conn was likely created)
+            # For tests, always use test_conn since tests are single-threaded
+            if threading.current_thread() is threading.main_thread():
+                return self._test_conn  # Return test connection
+
+        # Create connection with timeout to avoid blocking
+        conn = sqlite3.connect(self.db_name, timeout=30.0, check_same_thread=False)
+
+        # Enable WAL mode for better concurrency (only for file-based DBs)
+        if self.db_name != ":memory:":
+            try:
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA busy_timeout=30000")  # 30 seconds
+            except sqlite3.Error as e:
+                logger.warning(f"Could not enable WAL mode: {e}")
+
+        return conn
 
     def close_db_connection(self, conn: sqlite3.Connection) -> None:
         """Helper to close a database connection, if it's not a test connection."""
@@ -85,23 +105,29 @@ class Broker:
     def register_subscription(self, sid: str, consumer: str, topic: str) -> None:
         conn = None
         try:
-            conn = self.get_db_connection()
-            c = conn.cursor()
-            c.execute(
-                """
-                INSERT OR REPLACE INTO subscriptions (sid, consumer, topic, connected_at)
-                VALUES (?, ?, ?, ?)
-            """,
-                (sid, consumer, topic, time.time()),
-            )
-            conn.commit()
-            logger.info(f"Registered subscription: {consumer} to {topic} (SID: {sid})")
+            with self._db_lock:  # Thread-safe DB access
+                conn = self.get_db_connection()
+                c = conn.cursor()
+                c.execute(
+                    """
+                    INSERT OR REPLACE INTO subscriptions (sid, consumer, topic, connected_at)
+                    VALUES (?, ?, ?, ?)
+                """,
+                    (sid, consumer, topic, time.time()),
+                )
+                conn.commit()
+                logger.info(f"Registered subscription: {consumer} to {topic} (SID: {sid})")
 
-            socketio.emit(
-                "new_client",
-                {"consumer": consumer, "topic": topic, "connected_at": time.time()},
-                # Add timestamp for the UI
-            )
+            # SocketIO emit outside of lock to avoid blocking
+            try:
+                socketio.emit(
+                    "new_client",
+                    {"consumer": consumer, "topic": topic, "connected_at": time.time()},
+                    # Add timestamp for the UI
+                )
+            except Exception as e:
+                logger.error(f"Error emitting new_client event: {e}")
+
         except sqlite3.Error as e:
             logger.error(f"Database error during subscription registration: {e}")
             if conn:
@@ -112,16 +138,24 @@ class Broker:
 
     def unregister_client(self, sid: str) -> None:
         conn = None
+        client_data = []
         try:
-            conn = self.get_db_connection()
-            c = conn.cursor()
-            c.execute("SELECT consumer, topic FROM subscriptions WHERE sid = ?", (sid,))
-            client_data = c.fetchall()
-            c.execute("DELETE FROM subscriptions WHERE sid = ?", (sid,))
-            conn.commit()
+            with self._db_lock:  # Thread-safe DB access
+                conn = self.get_db_connection()
+                c = conn.cursor()
+                c.execute("SELECT consumer, topic FROM subscriptions WHERE sid = ?", (sid,))
+                client_data = c.fetchall()
+                c.execute("DELETE FROM subscriptions WHERE sid = ?", (sid,))
+                conn.commit()
+
+            # SocketIO emit outside of lock
             for consumer, topic in client_data:
                 logger.info(f"Unregistered client: {consumer} from {topic} (SID: {sid})")
-                socketio.emit("client_disconnected", {"consumer": consumer, "topic": topic})
+                try:
+                    socketio.emit("client_disconnected", {"consumer": consumer, "topic": topic})
+                except Exception as e:
+                    logger.error(f"Error emitting client_disconnected event: {e}")
+
         except sqlite3.Error as e:
             logger.error(f"Database error during client unregistration: {e}")
             if conn:
@@ -134,28 +168,34 @@ class Broker:
         conn = None
         timestamp = time.time()
         try:
-            conn = self.get_db_connection()
-            c = conn.cursor()
-            c.execute(
-                """
-                INSERT INTO messages (topic, message_id, message, producer, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-            """,
-                (topic, message_id, json.dumps(message), producer, timestamp),
-            )
-            conn.commit()
-            logger.info(f"Saved message: {message_id} to topic {topic} by {producer}")
+            with self._db_lock:  # Thread-safe DB access
+                conn = self.get_db_connection()
+                c = conn.cursor()
+                c.execute(
+                    """
+                    INSERT INTO messages (topic, message_id, message, producer, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                """,
+                    (topic, message_id, json.dumps(message), producer, timestamp),
+                )
+                conn.commit()
+                logger.info(f"Saved message: {message_id} to topic {topic} by {producer}")
 
-            socketio.emit(
-                "new_message",
-                {
-                    "topic": topic,
-                    "message_id": message_id,
-                    "message": message,
-                    "producer": producer,
-                    "timestamp": timestamp,
-                },
-            )
+            # SocketIO emit outside of lock
+            try:
+                socketio.emit(
+                    "new_message",
+                    {
+                        "topic": topic,
+                        "message_id": message_id,
+                        "message": message,
+                        "producer": producer,
+                        "timestamp": timestamp,
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Error emitting new_message event: {e}")
+
         except sqlite3.Error as e:
             logger.error(f"Database error during message save: {e}")
             if conn:
@@ -168,28 +208,34 @@ class Broker:
         conn = None
         timestamp = time.time()
         try:
-            conn = self.get_db_connection()
-            c = conn.cursor()
-            c.execute(
-                """
-                INSERT INTO consumptions (consumer, topic, message_id, message, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-            """,
-                (consumer, topic, message_id, json.dumps(message), timestamp),
-            )
-            conn.commit()
-            logger.info(f"Saved consumption: {consumer} consumed {message_id} from {topic}")
+            with self._db_lock:  # Thread-safe DB access
+                conn = self.get_db_connection()
+                c = conn.cursor()
+                c.execute(
+                    """
+                    INSERT INTO consumptions (consumer, topic, message_id, message, timestamp)
+                    VALUES (?, ?, ?, ?, ?)
+                """,
+                    (consumer, topic, message_id, json.dumps(message), timestamp),
+                )
+                conn.commit()
+                logger.info(f"Saved consumption: {consumer} consumed {message_id} from {topic}")
 
-            socketio.emit(
-                "new_consumption",
-                {
-                    "consumer": consumer,
-                    "topic": topic,
-                    "message_id": message_id,
-                    "message": message,
-                    "timestamp": timestamp,
-                },
-            )
+            # SocketIO emit outside of lock
+            try:
+                socketio.emit(
+                    "new_consumption",
+                    {
+                        "consumer": consumer,
+                        "topic": topic,
+                        "message_id": message_id,
+                        "message": message,
+                        "timestamp": timestamp,
+                    },
+                )
+            except Exception as e:
+                logger.error(f"Error emitting new_consumption event: {e}")
+
         except sqlite3.Error as e:
             logger.error(f"Database error during consumption save: {e}")
             if conn:
@@ -202,21 +248,22 @@ class Broker:
     def get_clients(self) -> List[Dict[str, Any]]:
         conn = None
         try:
-            conn = self.get_db_connection()
-            c = conn.cursor()
-            # --- MODIFICATION ---
-            c.execute(
+            with self._db_lock:  # Thread-safe DB access
+                conn = self.get_db_connection()
+                c = conn.cursor()
+                # --- MODIFICATION ---
+                c.execute(
+                    """
+                    SELECT consumer, topic, connected_at FROM subscriptions
+                    ORDER BY connected_at DESC
+                    LIMIT 100
                 """
-                SELECT consumer, topic, connected_at FROM subscriptions
-                ORDER BY connected_at DESC
-                LIMIT 100
-            """
-            )
-            # --- END OF MODIFICATION ---
-            rows = c.fetchall()
-            clients = [{"consumer": r[0], "topic": r[1], "connected_at": r[2]} for r in rows]
-            logger.info(f"Retrieved {len(clients)} connected clients")
-            return clients
+                )
+                # --- END OF MODIFICATION ---
+                rows = c.fetchall()
+                clients = [{"consumer": r[0], "topic": r[1], "connected_at": r[2]} for r in rows]
+                logger.info(f"Retrieved {len(clients)} connected clients")
+                return clients
         except sqlite3.Error as e:
             logger.error(f"Database error retrieving clients: {e}")
             return []
@@ -228,26 +275,27 @@ class Broker:
     def get_messages(self) -> List[Dict[str, Any]]:
         conn = None
         try:
-            conn = self.get_db_connection()
-            c = conn.cursor()
-            # --- MODIFICATION ---
-            c.execute(
+            with self._db_lock:  # Thread-safe DB access
+                conn = self.get_db_connection()
+                c = conn.cursor()
+                # --- MODIFICATION ---
+                c.execute(
+                    """
+                    SELECT topic, message_id, message, producer, timestamp FROM messages
+                    WHERE message_id IS NOT NULL
+                    ORDER BY timestamp DESC
+                    LIMIT 100
                 """
-                SELECT topic, message_id, message, producer, timestamp FROM messages
-                WHERE message_id IS NOT NULL
-                ORDER BY timestamp DESC
-                LIMIT 100
-            """
-            )
-            # --- END OF MODIFICATION ---
-            rows = c.fetchall()
-            messages = [
-                {"topic": r[0], "message_id": r[1], "message": json.loads(r[2]), "producer": r[3],
-                 "timestamp": r[4]}
-                for r in rows
-            ]
-            logger.info(f"Retrieved {len(messages)} messages")
-            return messages
+                )
+                # --- END OF MODIFICATION ---
+                rows = c.fetchall()
+                messages = [
+                    {"topic": r[0], "message_id": r[1], "message": json.loads(r[2]), "producer": r[3],
+                     "timestamp": r[4]}
+                    for r in rows
+                ]
+                logger.info(f"Retrieved {len(messages)} messages")
+                return messages
         except sqlite3.Error as e:
             logger.error(f"Database error retrieving messages: {e}")
             return []
@@ -259,26 +307,27 @@ class Broker:
     def get_consumptions(self) -> List[Dict[str, Any]]:
         conn = None
         try:
-            conn = self.get_db_connection()
-            c = conn.cursor()
-            # --- MODIFICATION ---
-            c.execute(
+            with self._db_lock:  # Thread-safe DB access
+                conn = self.get_db_connection()
+                c = conn.cursor()
+                # --- MODIFICATION ---
+                c.execute(
+                    """
+                    SELECT consumer, topic, message_id, message, timestamp FROM consumptions
+                    WHERE message_id IS NOT NULL
+                    ORDER BY timestamp DESC
+                    LIMIT 100
                 """
-                SELECT consumer, topic, message_id, message, timestamp FROM consumptions
-                WHERE message_id IS NOT NULL
-                ORDER BY timestamp DESC
-                LIMIT 100
-            """
-            )
-            # --- END OF MODIFICATION ---
-            rows = c.fetchall()
-            consumptions = [
-                {"consumer": r[0], "topic": r[1], "message_id": r[2], "message": json.loads(r[3]),
-                 "timestamp": r[4]}
-                for r in rows
-            ]
-            logger.info(f"Retrieved {len(consumptions)} consumption events")
-            return consumptions
+                )
+                # --- END OF MODIFICATION ---
+                rows = c.fetchall()
+                consumptions = [
+                    {"consumer": r[0], "topic": r[1], "message_id": r[2], "message": json.loads(r[3]),
+                     "timestamp": r[4]}
+                    for r in rows
+                ]
+                logger.info(f"Retrieved {len(consumptions)} consumption events")
+                return consumptions
         except sqlite3.Error as e:
             logger.error(f"Database error retrieving consumptions: {e}")
             return []
@@ -334,6 +383,28 @@ def messages() -> flask.Response:
 def consumptions() -> flask.Response:
     logger.info("Fetching consumption events")
     return jsonify(broker.get_consumptions())
+
+
+@app.route("/health")
+def health_check() -> flask.Response:
+    """Health check endpoint to monitor system status."""
+    try:
+        # Try a simple DB query to ensure DB is accessible
+        conn = None
+        with broker._db_lock:
+            conn = broker.get_db_connection()
+            c = conn.cursor()
+            c.execute("SELECT 1")
+            c.fetchone()
+        if conn:
+            broker.close_db_connection(conn)
+
+        # noinspection PyTypeChecker
+        return jsonify({"status": "healthy", "timestamp": time.time()}), 200
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        # noinspection PyTypeChecker
+        return jsonify({"status": "unhealthy", "error": str(e), "timestamp": time.time()}), 503
 
 
 @app.route("/")
@@ -434,35 +505,37 @@ def graph_state() -> flask.Response:
     """
     conn = None
     try:
-        conn = broker.get_db_connection()
-        c = conn.cursor()
+        # noinspection PyProtectedMember
+        with broker._db_lock:  # Thread-safe DB access
+            conn = broker.get_db_connection()
+            c = conn.cursor()
 
-        # Get all unique producers from messages
-        c.execute("SELECT DISTINCT producer FROM messages")
-        producers = [row[0] for row in c.fetchall()]
+            # Get all unique producers from messages
+            c.execute("SELECT DISTINCT producer FROM messages")
+            producers = [row[0] for row in c.fetchall()]
 
-        # Get all unique consumers from subscriptions/consumptions
-        c.execute("SELECT DISTINCT consumer FROM subscriptions UNION SELECT DISTINCT consumer FROM consumptions")
-        consumers = [row[0] for row in c.fetchall()]
+            # Get all unique consumers from subscriptions/consumptions
+            c.execute("SELECT DISTINCT consumer FROM subscriptions UNION SELECT DISTINCT consumer FROM consumptions")
+            consumers = [row[0] for row in c.fetchall()]
 
-        # Get all unique topics
-        c.execute("SELECT DISTINCT topic FROM messages UNION SELECT DISTINCT topic FROM subscriptions UNION SELECT DISTINCT topic FROM consumptions")
-        topics = [row[0] for row in c.fetchall()]
+            # Get all unique topics
+            c.execute("SELECT DISTINCT topic FROM messages UNION SELECT DISTINCT topic FROM subscriptions UNION SELECT DISTINCT topic FROM consumptions")
+            topics = [row[0] for row in c.fetchall()]
 
-        # Get all active subscriptions (links from topic to consumer)
-        c.execute("SELECT topic, consumer FROM subscriptions")
-        subscriptions = [{"source": row[0], "target": row[1], "type": "consume"} for row in c.fetchall()]
+            # Get all active subscriptions (links from topic to consumer)
+            c.execute("SELECT topic, consumer FROM subscriptions")
+            subscriptions = [{"source": row[0], "target": row[1], "type": "consume"} for row in c.fetchall()]
 
-        # Get all producer->topic relationships from messages
-        c.execute("SELECT DISTINCT producer, topic FROM messages")
-        publications = [{"source": row[0], "target": row[1], "type": "publish"} for row in c.fetchall()]
+            # Get all producer->topic relationships from messages
+            c.execute("SELECT DISTINCT producer, topic FROM messages")
+            publications = [{"source": row[0], "target": row[1], "type": "publish"} for row in c.fetchall()]
 
-        state = {
-            "producers": producers,
-            "consumers": consumers,
-            "topics": topics,
-            "links": subscriptions + publications
-        }
+            state = {
+                "producers": producers,
+                "consumers": consumers,
+                "topics": topics,
+                "links": subscriptions + publications
+            }
         return jsonify(state)
 
     except sqlite3.Error as e:

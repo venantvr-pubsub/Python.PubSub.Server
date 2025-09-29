@@ -1,4 +1,4 @@
-.PHONY: help test install update clean
+.PHONY: help test install dev update clean
 
 PYTHON := $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 PIP := $(if $(wildcard .venv/bin/pip),.venv/bin/pip,pip3)
@@ -9,7 +9,8 @@ help:
 	@echo "Available targets:"
 	@echo "  test      Run tests"
 	@echo "  clean     Clean up generated files"
-	@echo "  install   Install dependencies"
+	@echo "  install   Install dependencies and package in editable mode"
+	@echo "  dev       Alias for install (development setup)"
 	@echo "  update    Update dependencies"
 
 # Testing
@@ -20,6 +21,10 @@ test:
 install:
 	$(PIP) install -r requirements.txt
 	$(PIP) install -r requirements-dev.txt
+	$(PIP) install -e .  # Install package in editable mode for IDE import resolution
+
+# Development setup (alias for install)
+dev: install
 
 # Updates
 update:
