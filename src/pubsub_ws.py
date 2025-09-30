@@ -227,22 +227,43 @@ def handle_disconnect() -> None:
 
 # 6. Point d'entrée principal
 def main() -> None:
-    """Démarre le worker BDD, qui gère l'init du schéma, puis lance le serveur Flask."""
+    """Démarre le worker BDD, gère l'init du schéma, puis lance le serveur Flask."""
 
-    # Préparez le chemin du script de migration.
-    # Ce code suppose que le script est dans un dossier 'migrations' à la racine du projet.
+    # La préparation du chemin du script ne change pas
     migration_script = os.path.join(os.path.dirname(__file__), '..', 'migrations', '001_add_message_id_and_producer.sql')
-    migration_script = os.path.normpath(migration_script)  # Nettoie le chemin (ex: a/b/../c -> a/c)
+    migration_script = os.path.normpath(migration_script)
 
-    # Démarre le worker et lui demande de s'auto-initialiser si besoin
-    db.start(
-        migration_script_path=migration_script,
-        check_table="messages"  # La table qui indique si la migration a eu lieu
-    )
+    # NOUVEAU : Démarrage simple du worker
+    # La méthode start() ne fait plus que lancer le thread.
+    db.start()
 
     logger.info("Main thread waiting for database to be ready...")
     if not db.wait_for_ready(timeout=10):
         logger.error("Database worker failed to initialize in time. Exiting.")
+        db.stop()
+        return
+
+    # NOUVEAU : Logique de migration explicite
+    try:
+        logger.info("Checking for 'messages' table to decide on migration...")
+        # On vérifie manuellement si la table existe
+        res = db.execute_read("SELECT name FROM sqlite_master WHERE type='table' AND name=?", ("messages",))
+
+        if not res:
+            logger.info("Table 'messages' not found, running migration script...")
+            # Si elle n'existe pas, on exécute le script
+            db.execute_script(migration_script)
+
+            # NOUVEAU et ESSENTIEL : On attend la fin de la migration
+            # db.sync() bloque jusqu'à ce que toutes les commandes en file (y compris notre script) soient terminées.
+            if not db.sync(timeout=15):
+                raise RuntimeError("Migration script failed to complete in time.")
+            logger.info("Migration finished successfully.")
+        else:
+            logger.info("Table 'messages' already exists, skipping migration.")
+
+    except Exception as e:
+        logger.error(f"An error occurred during migration check: {e}", exc_info=True)
         db.stop()
         return
 
@@ -257,7 +278,6 @@ def main() -> None:
         logger.info("Shutting down...")
         db.stop()
         logger.info("Shutdown complete.")
-
 
 if __name__ == "__main__":
     main()
