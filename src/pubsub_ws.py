@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 # 2. Chargement de la configuration et définition des variables globales
 load_dotenv()
 DB_FILE_NAME = os.getenv("DATABASE_FILE", ":memory:")
+
+# Si on utilise :memory:, on doit utiliser un URI spécial pour partager la connexion entre threads
+if DB_FILE_NAME == ":memory:":
+    DB_FILE_NAME = "file::memory:?cache=shared"
+
 db_write_queue = deque()
 db_write_queue_lock = threading.Lock()  # Protection pour les ajouts concurrents
 db_ready_event = threading.Event()
@@ -91,8 +96,13 @@ class DatabaseWorker(threading.Thread):
         """Boucle principale du worker : initialise la BDD, signale qu'il est prêt, puis traite la file."""
         conn = None
         try:
-            conn = sqlite3.connect(self.db_name, timeout=30.0, check_same_thread=False)
-            if self.db_name != ":memory:":
+            # Pour les bases en mémoire partagées, on doit utiliser uri=True
+            if self.db_name.startswith("file:"):
+                conn = sqlite3.connect(self.db_name, timeout=30.0, check_same_thread=False, uri=True)
+            else:
+                conn = sqlite3.connect(self.db_name, timeout=30.0, check_same_thread=False)
+
+            if not self.db_name.startswith("file::memory:"):
                 conn.execute("PRAGMA journal_mode=WAL")
                 conn.execute("PRAGMA busy_timeout=30000")
 
@@ -262,8 +272,11 @@ class Broker:
         if self.test_conn:
             return self.test_conn
 
-        if self.db_name == ":memory:":
-            return sqlite3.connect(self.db_name, timeout=5.0)
+        # Si c'est déjà une URI file:, on la réutilise (pour mémoire partagée)
+        if self.db_name.startswith("file:"):
+            return sqlite3.connect(self.db_name, uri=True, timeout=5.0, check_same_thread=False)
+
+        # Pour les fichiers sur disque, on ouvre en lecture seule
         db_uri = f"file:{self.db_name}?mode=ro"
         return sqlite3.connect(db_uri, uri=True, timeout=5.0)
 
