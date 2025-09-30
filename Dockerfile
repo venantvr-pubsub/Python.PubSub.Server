@@ -4,8 +4,8 @@ FROM python:3.11-slim as builder
 # Le WORKDIR du builder peut rester /app
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y gcc && rm -rf /var/lib/apt/lists/*
+# Install system dependencies (git nécessaire pour installer depuis GitHub)
+RUN apt-get update && apt-get install -y gcc git && rm -rf /var/lib/apt/lists/*
 
 # Copy files required for package installation
 COPY pyproject.toml README.md ./
