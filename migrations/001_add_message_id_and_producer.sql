@@ -46,3 +46,39 @@ CREATE INDEX idx_consumptions_timestamp ON consumptions (timestamp);
 CREATE INDEX idx_subscriptions_consumer ON subscriptions (consumer);
 CREATE INDEX idx_subscriptions_topic ON subscriptions (topic);
 CREATE INDEX idx_subscriptions_connected_at ON subscriptions (connected_at);
+
+-- Trigger pour la table 'messages'
+CREATE TRIGGER IF NOT EXISTS trim_messages
+AFTER INSERT ON messages
+BEGIN
+    DELETE FROM messages
+    WHERE rowid NOT IN (
+        SELECT rowid FROM messages
+        ORDER BY timestamp DESC
+        LIMIT 1000
+    );
+END;
+
+-- Trigger pour la table 'consumptions'
+CREATE TRIGGER IF NOT EXISTS trim_consumptions
+AFTER INSERT ON consumptions
+BEGIN
+    DELETE FROM consumptions
+    WHERE rowid NOT IN (
+        SELECT rowid FROM consumptions
+        ORDER BY timestamp DESC
+        LIMIT 1000
+    );
+END;
+
+-- On peut aussi le faire pour les abonnements, si besoin
+CREATE TRIGGER IF NOT EXISTS trim_subscriptions
+AFTER INSERT ON subscriptions
+BEGIN
+    DELETE FROM subscriptions
+    WHERE rowid NOT IN (
+        SELECT rowid FROM subscriptions
+        ORDER BY connected_at DESC
+        LIMIT 1000
+    );
+END;

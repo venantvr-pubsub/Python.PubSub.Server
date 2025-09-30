@@ -1,369 +1,409 @@
-# pubsub_ws.py
-
 import json
 import logging
+import os
 import sqlite3
 import threading
 import time
+from collections import deque
 from os import path
 from typing import Any, Dict, List, Optional, Tuple
 
 import flask
+from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, send_from_directory
 from flask_socketio import SocketIO, emit, join_room
 
-# Configure logging for debugging
-logging.basicConfig(level=logging.INFO)
+# 1. Configuration du logging (avec format amélioré pour le multithreading)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(threadName)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# 2. Chargement de la configuration et définition des variables globales
+load_dotenv()
+DB_FILE_NAME = os.getenv("DATABASE_FILE", ":memory:")
+db_write_queue = deque()
+db_write_queue_lock = threading.Lock()  # Protection pour les ajouts concurrents
+db_ready_event = threading.Event()
 
-# --- START MODIFICATION FOR DB MANAGEMENT AND TESTS ---
-def init_db(db_name: str, connection: Optional[sqlite3.Connection] = None) -> None:
-    """Initialize the SQLite database and run migrations if necessary."""
-    if connection:
-        conn = connection
-        close_conn = False  # Don't close connection if provided
+
+def init_db(db_name: str = ":memory:", connection: Optional[sqlite3.Connection] = None) -> sqlite3.Connection:
+    """
+    Initialise le schéma de la base de données. Utilisé pour les tests.
+
+    Args:
+        db_name: Nom de la base de données
+        connection: Connexion existante (optionnelle)
+
+    Returns:
+        La connexion à la base de données
+    """
+    if connection is None:
+        connection = sqlite3.connect(db_name, timeout=30.0)
+
+    migration_script = "migrations/001_add_message_id_and_producer.sql"
+    if path.exists(migration_script):
+        with open(migration_script) as f:
+            connection.executescript(f.read())
+        logger.info("Migration script executed successfully.")
     else:
-        conn = sqlite3.connect(db_name)
-        close_conn = True  # Close connection if created here
+        # Schéma par défaut si le fichier de migration n'existe pas
+        connection.executescript("""
+            CREATE TABLE IF NOT EXISTS subscriptions (
+                sid TEXT PRIMARY KEY,
+                consumer TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                connected_at REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                topic TEXT NOT NULL,
+                message_id TEXT NOT NULL,
+                message TEXT NOT NULL,
+                producer TEXT NOT NULL,
+                timestamp REAL NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS consumptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                consumer TEXT NOT NULL,
+                topic TEXT NOT NULL,
+                message_id TEXT NOT NULL,
+                message TEXT NOT NULL,
+                timestamp REAL NOT NULL
+            );
+        """)
+        logger.info("Default schema created.")
 
-    try:
-        c = conn.cursor()
-        c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='messages'")
-        if not c.fetchone():
-            logger.info(
-                f"[INIT DB] Messages table missing in {db_name}, running migration script...")
+    connection.commit()
+    return connection
+
+
+class DatabaseWorker(threading.Thread):
+    """
+    Thread dédié qui gère toutes les écritures dans la base de données.
+    """
+
+    def __init__(self, db_name: str, stop_event: threading.Event) -> None:
+        super().__init__(name="DatabaseWorker")
+        self.db_name = db_name
+        self.daemon = True
+        self._stop_event = stop_event
+
+    def run(self) -> None:
+        """Boucle principale du worker : initialise la BDD, signale qu'il est prêt, puis traite la file."""
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_name, timeout=30.0, check_same_thread=False)
+            if self.db_name != ":memory:":
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA busy_timeout=30000")
+
+            logger.info("Initializing database...")
+            self._init_schema(conn)
+            logger.info("Database is ready.")
+            db_ready_event.set()
+
+            while not self._stop_event.is_set():
+                try:
+                    with db_write_queue_lock:
+                        task = db_write_queue.popleft()
+
+                    if task is None:
+                        continue
+
+                    sql, params = task
+                    conn.execute(sql, params)
+                    conn.commit()
+                except IndexError:
+                    time.sleep(0.01)
+                except sqlite3.Error as e:
+                    logger.error(f"Database write error: {e}")
+                except Exception as e:
+                    logger.error(f"Unexpected error in database worker: {e}")
+        except Exception as e:
+            logger.error(f"Fatal error in database worker: {e}")
+        finally:
+            if conn is not None:
+                conn.close()
+                logger.info("Database connection closed.")
+
+    # noinspection PyMethodMayBeStatic
+    def _init_schema(self, conn: sqlite3.Connection) -> None:
+        """Exécute le script de migration si la table principale est manquante."""
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='messages'")
+        if not cursor.fetchone():
+            logger.info("Messages table not found, running migration script...")
             migration_script = "migrations/001_add_message_id_and_producer.sql"
             if path.exists(migration_script):
                 with open(migration_script) as f:
                     conn.executescript(f.read())
-                    logger.info(f"[INIT DB] Migration script executed successfully for {db_name}.")
+                logger.info("Migration script executed successfully.")
             else:
-                logger.error(f"[INIT DB] Migration script not found: {migration_script}")
-    finally:
-        if close_conn and conn:  # Close connection only if it was opened here
-            conn.close()
+                logger.error(f"Migration script not found: {migration_script}")
 
 
-# Default DB file name
-DB_FILE_NAME = "pubsub.db"
-# --- END MODIFICATION FOR DB MANAGEMENT AND TESTS ---
-
-
-app = Flask(__name__)
-app.config["SECRET_KEY"] = "secret!"
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
-
-# Initialize the real database when starting the application
-if __name__ == "__main__":
-    init_db(DB_FILE_NAME)
-
-
+# noinspection PyShadowingNames
 class Broker:
+    """
+    Le Broker sert d'interface : met en file d'attente les écritures et effectue les lectures.
+    """
 
-    # The broker can receive an existing connection for tests
-    def __init__(self, db_name: str, test_conn: Optional[sqlite3.Connection] = None):
-        """
-        Initialize the Broker with a database name.
-
-        :param db_name: Name of the SQLite database file (or ':memory:')
-        :param test_conn: An optional existing SQLite connection for testing purposes.
-        """
+    def __init__(self, db_name: str, test_conn: Optional[sqlite3.Connection] = None) -> None:
         self.db_name = db_name
-        self._test_conn = test_conn  # Store test connection
-        self._db_lock = threading.Lock()  # Lock for thread-safe DB access
-
-    def get_db_connection(self) -> sqlite3.Connection:
-        """Helper to get a database connection. Uses test_conn if available."""
-        # Only use test_conn if we're in the same thread that created it
-        if self._test_conn:
-            import threading
-
-            # Check if we're in the main thread (where test_conn was likely created)
-            # For tests, always use test_conn since tests are single-threaded
-            if threading.current_thread() is threading.main_thread():
-                return self._test_conn  # Return test connection
-
-        # Create connection with timeout to avoid blocking
-        conn = sqlite3.connect(self.db_name, timeout=30.0, check_same_thread=False)
-
-        # Enable WAL mode for better concurrency (only for file-based DBs)
-        if self.db_name != ":memory:":
-            try:
-                conn.execute("PRAGMA journal_mode=WAL")
-                conn.execute("PRAGMA busy_timeout=30000")  # 30 seconds
-            except sqlite3.Error as e:
-                logger.warning(f"Could not enable WAL mode: {e}")
-
-        return conn
-
-    def close_db_connection(self, conn: sqlite3.Connection) -> None:
-        """Helper to close a database connection, if it's not a test connection."""
-        if conn != self._test_conn:  # Don't close test connection
-            conn.close()
+        self.test_conn = test_conn  # Pour les tests uniquement
 
     def register_subscription(self, sid: str, consumer: str, topic: str) -> None:
-        conn = None
-        try:
-            with self._db_lock:  # Thread-safe DB access
-                conn = self.get_db_connection()
-                c = conn.cursor()
-                c.execute(
-                    """
-                    INSERT OR REPLACE INTO subscriptions (sid, consumer, topic, connected_at)
-                    VALUES (?, ?, ?, ?)
-                """,
-                    (sid, consumer, topic, time.time()),
-                )
-                conn.commit()
-                logger.info(f"Registered subscription: {consumer} to {topic} (SID: {sid})")
+        if not all([sid, consumer, topic]):
+            logger.warning("register_subscription: Missing required parameters")
+            return
 
-            # SocketIO emit outside of lock to avoid blocking
+        sql = "INSERT OR REPLACE INTO subscriptions (sid, consumer, topic, connected_at) VALUES (?, ?, ?, ?)"
+        params = (sid, consumer, topic, time.time())
+
+        if self.test_conn:
+            # Mode test : écriture synchrone
             try:
-                socketio.emit(
-                    "new_client",
-                    {"consumer": consumer, "topic": topic, "connected_at": time.time()},
-                    # Add timestamp for the UI
-                )
-            except Exception as e:
-                logger.error(f"Error emitting new_client event: {e}")
+                self.test_conn.execute(sql, params)
+                self.test_conn.commit()
+            except sqlite3.Error as e:
+                logger.error(f"Error in register_subscription: {e}")
+        else:
+            # Mode production : écriture asynchrone
+            with db_write_queue_lock:
+                db_write_queue.append((sql, params))
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error during subscription registration: {e}")
-            if conn:
-                conn.rollback()  # Rollback on error
-        finally:
-            if conn:
-                self.close_db_connection(conn)  # Use the new close method
+        socketio.emit("new_client", {"consumer": consumer, "topic": topic, "connected_at": time.time()})
 
-    def unregister_client(self, sid: str) -> None:
-        conn = None
-        client_data = []
-        try:
-            with self._db_lock:  # Thread-safe DB access
-                conn = self.get_db_connection()
-                c = conn.cursor()
-                c.execute("SELECT consumer, topic FROM subscriptions WHERE sid = ?", (sid,))
-                client_data = c.fetchall()
-                c.execute("DELETE FROM subscriptions WHERE sid = ?", (sid,))
-                conn.commit()
+    def unregister_client(self, sid: str, consumer: Optional[str] = None, topic: Optional[str] = None) -> None:
+        """
+        Désinscrit un client. Si consumer et topic ne sont pas fournis, ils sont récupérés via sid.
 
-            # SocketIO emit outside of lock
-            for consumer, topic in client_data:
-                logger.info(f"Unregistered client: {consumer} from {topic} (SID: {sid})")
-                try:
-                    socketio.emit("client_disconnected", {"consumer": consumer, "topic": topic})
-                except Exception as e:
-                    logger.error(f"Error emitting client_disconnected event: {e}")
+        Args:
+            sid: ID de session du client
+            consumer: Nom du consommateur (optionnel)
+            topic: Nom du topic (optionnel)
+        """
+        if not sid:
+            logger.warning("unregister_client: Missing sid")
+            return
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error during client unregistration: {e}")
-            if conn:
-                conn.rollback()
-        finally:
-            if conn:
-                self.close_db_connection(conn)
+        # Si consumer et topic ne sont pas fournis, on les récupère
+        if consumer is None or topic is None:
+            client_info = self.get_client_by_sid(sid)
+            if client_info:
+                consumer, topic = client_info
+
+        sql = "DELETE FROM subscriptions WHERE sid = ?"
+
+        if self.test_conn:
+            # Mode test : écriture synchrone
+            try:
+                self.test_conn.execute(sql, (sid,))
+                self.test_conn.commit()
+            except sqlite3.Error as e:
+                logger.error(f"Error in unregister_client: {e}")
+        else:
+            # Mode production : écriture asynchrone
+            with db_write_queue_lock:
+                db_write_queue.append((sql, (sid,)))
+
+        if consumer and topic:
+            socketio.emit("client_disconnected", {"consumer": consumer, "topic": topic})
 
     def save_message(self, topic: str, message_id: str, message: Any, producer: str) -> None:
-        conn = None
+        if not all([topic, message_id, producer]):
+            logger.warning("save_message: Missing required parameters")
+            return
+
         timestamp = time.time()
-        try:
-            with self._db_lock:  # Thread-safe DB access
-                conn = self.get_db_connection()
-                c = conn.cursor()
-                c.execute(
-                    """
-                    INSERT INTO messages (topic, message_id, message, producer, timestamp)
-                    VALUES (?, ?, ?, ?, ?)
-                """,
-                    (topic, message_id, json.dumps(message), producer, timestamp),
-                )
-                conn.commit()
-                logger.info(f"Saved message: {message_id} to topic {topic} by {producer}")
+        sql = "INSERT INTO messages (topic, message_id, message, producer, timestamp) VALUES (?, ?, ?, ?, ?)"
+        message_json = json.dumps(message) if not isinstance(message, str) else message
+        params = (topic, message_id, message_json, producer, timestamp)
 
-            # SocketIO emit outside of lock
+        if self.test_conn:
+            # Mode test : écriture synchrone
             try:
-                socketio.emit(
-                    "new_message",
-                    {
-                        "topic": topic,
-                        "message_id": message_id,
-                        "message": message,
-                        "producer": producer,
-                        "timestamp": timestamp,
-                    },
-                )
-            except Exception as e:
-                logger.error(f"Error emitting new_message event: {e}")
+                self.test_conn.execute(sql, params)
+                self.test_conn.commit()
+            except sqlite3.Error as e:
+                logger.error(f"Error in save_message: {e}")
+        else:
+            # Mode production : écriture asynchrone
+            with db_write_queue_lock:
+                db_write_queue.append((sql, params))
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error during message save: {e}")
-            if conn:
-                conn.rollback()
-        finally:
-            if conn:
-                self.close_db_connection(conn)
+        socketio.emit("new_message", {"topic": topic, "message_id": message_id, "message": message, "producer": producer, "timestamp": timestamp})
 
     def save_consumption(self, consumer: str, topic: str, message_id: str, message: Any) -> None:
-        conn = None
+        if not all([consumer, topic, message_id]):
+            logger.warning("save_consumption: Missing required parameters")
+            return
+
         timestamp = time.time()
-        try:
-            with self._db_lock:  # Thread-safe DB access
-                conn = self.get_db_connection()
-                c = conn.cursor()
-                c.execute(
-                    """
-                    INSERT INTO consumptions (consumer, topic, message_id, message, timestamp)
-                    VALUES (?, ?, ?, ?, ?)
-                """,
-                    (consumer, topic, message_id, json.dumps(message), timestamp),
-                )
-                conn.commit()
-                logger.info(f"Saved consumption: {consumer} consumed {message_id} from {topic}")
+        sql = "INSERT INTO consumptions (consumer, topic, message_id, message, timestamp) VALUES (?, ?, ?, ?, ?)"
+        message_json = json.dumps(message) if not isinstance(message, str) else message
+        params = (consumer, topic, message_id, message_json, timestamp)
 
-            # SocketIO emit outside of lock
+        if self.test_conn:
+            # Mode test : écriture synchrone
             try:
-                socketio.emit(
-                    "new_consumption",
-                    {
-                        "consumer": consumer,
-                        "topic": topic,
-                        "message_id": message_id,
-                        "message": message,
-                        "timestamp": timestamp,
-                    },
-                )
-            except Exception as e:
-                logger.error(f"Error emitting new_consumption event: {e}")
+                self.test_conn.execute(sql, params)
+                self.test_conn.commit()
+            except sqlite3.Error as e:
+                logger.error(f"Error in save_consumption: {e}")
+        else:
+            # Mode production : écriture asynchrone
+            with db_write_queue_lock:
+                db_write_queue.append((sql, params))
 
-        except sqlite3.Error as e:
-            logger.error(f"Database error during consumption save: {e}")
-            if conn:
-                conn.rollback()
-        finally:
-            if conn:
-                self.close_db_connection(conn)
+        socketio.emit("new_consumption", {"consumer": consumer, "topic": topic, "message_id": message_id, "message": message, "timestamp": timestamp})
 
-    # noinspection PyShadowingNames
-    def get_clients(self) -> List[Dict[str, Any]]:
-        conn = None
+    def _get_read_connection(self) -> sqlite3.Connection:
+        """Retourne une connexion en lecture seule, ou la connexion de test si disponible."""
+        if self.test_conn:
+            return self.test_conn
+
+        if self.db_name == ":memory:":
+            return sqlite3.connect(self.db_name, timeout=5.0)
+        db_uri = f"file:{self.db_name}?mode=ro"
+        return sqlite3.connect(db_uri, uri=True, timeout=5.0)
+
+    def get_client_by_sid(self, sid: str) -> Optional[Tuple[str, str]]:
+        if not sid:
+            return None
+
         try:
-            with self._db_lock:  # Thread-safe DB access
-                conn = self.get_db_connection()
-                c = conn.cursor()
-                # --- MODIFICATION ---
-                c.execute(
-                    """
-                    SELECT consumer, topic, connected_at FROM subscriptions
-                    ORDER BY connected_at DESC
-                    LIMIT 100
-                """
-                )
-                # --- END OF MODIFICATION ---
-                rows = c.fetchall()
+            if self.test_conn:
+                cursor = self.test_conn.cursor()
+                cursor.execute("SELECT consumer, topic FROM subscriptions WHERE sid = ?", (sid,))
+                result = cursor.fetchone()
+                return result if result else None
+            else:
+                with self._get_read_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT consumer, topic FROM subscriptions WHERE sid = ?", (sid,))
+                    result = cursor.fetchone()
+                    return result if result else None
+        except sqlite3.Error as e:
+            logger.error(f"Error fetching client by SID: {e}")
+            return None
+
+    def get_clients(self) -> List[Dict[str, Any]]:
+        try:
+            if self.test_conn:
+                cursor = self.test_conn.cursor()
+                cursor.execute("SELECT consumer, topic, connected_at FROM subscriptions ORDER BY connected_at DESC LIMIT 100")
+                rows = cursor.fetchall()
                 clients = [{"consumer": r[0], "topic": r[1], "connected_at": r[2]} for r in rows]
                 logger.info(f"Retrieved {len(clients)} connected clients")
                 return clients
+            else:
+                with self._get_read_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT consumer, topic, connected_at FROM subscriptions ORDER BY connected_at DESC LIMIT 100")
+                    rows = cursor.fetchall()
+                    clients = [{"consumer": r[0], "topic": r[1], "connected_at": r[2]} for r in rows]
+                    logger.info(f"Retrieved {len(clients)} connected clients")
+                    return clients
         except sqlite3.Error as e:
-            logger.error(f"Database error retrieving clients: {e}")
+            logger.error(f"Error fetching clients: {e}")
             return []
-        finally:
-            if conn:
-                self.close_db_connection(conn)
 
-    # noinspection PyShadowingNames
     def get_messages(self) -> List[Dict[str, Any]]:
-        conn = None
         try:
-            with self._db_lock:  # Thread-safe DB access
-                conn = self.get_db_connection()
-                c = conn.cursor()
-                # --- MODIFICATION ---
-                c.execute(
-                    """
-                    SELECT topic, message_id, message, producer, timestamp FROM messages
-                    WHERE message_id IS NOT NULL
-                    ORDER BY timestamp DESC
-                    LIMIT 100
-                """
-                )
-                # --- END OF MODIFICATION ---
-                rows = c.fetchall()
-                messages = [
-                    {"topic": r[0], "message_id": r[1], "message": json.loads(r[2]), "producer": r[3],
-                     "timestamp": r[4]}
-                    for r in rows
-                ]
+            if self.test_conn:
+                cursor = self.test_conn.cursor()
+                cursor.execute("SELECT topic, message_id, message, producer, timestamp FROM messages ORDER BY timestamp DESC LIMIT 100")
+                rows = cursor.fetchall()
+                messages = [{"topic": r[0], "message_id": r[1], "message": json.loads(r[2]) if r[2] else {}, "producer": r[3], "timestamp": r[4]} for r in rows]
                 logger.info(f"Retrieved {len(messages)} messages")
                 return messages
+            else:
+                with self._get_read_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT topic, message_id, message, producer, timestamp FROM messages ORDER BY timestamp DESC LIMIT 100")
+                    rows = cursor.fetchall()
+                    messages = [{"topic": r[0], "message_id": r[1], "message": json.loads(r[2]) if r[2] else {}, "producer": r[3], "timestamp": r[4]} for r in rows]
+                    logger.info(f"Retrieved {len(messages)} messages")
+                    return messages
         except sqlite3.Error as e:
-            logger.error(f"Database error retrieving messages: {e}")
+            logger.error(f"Error fetching messages: {e}")
             return []
-        finally:
-            if conn:
-                self.close_db_connection(conn)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding message JSON: {e}")
+            return []
 
-    # noinspection PyShadowingNames
     def get_consumptions(self) -> List[Dict[str, Any]]:
-        conn = None
         try:
-            with self._db_lock:  # Thread-safe DB access
-                conn = self.get_db_connection()
-                c = conn.cursor()
-                # --- MODIFICATION ---
-                c.execute(
-                    """
-                    SELECT consumer, topic, message_id, message, timestamp FROM consumptions
-                    WHERE message_id IS NOT NULL
-                    ORDER BY timestamp DESC
-                    LIMIT 100
-                """
-                )
-                # --- END OF MODIFICATION ---
-                rows = c.fetchall()
-                consumptions = [
-                    {"consumer": r[0], "topic": r[1], "message_id": r[2], "message": json.loads(r[3]),
-                     "timestamp": r[4]}
-                    for r in rows
-                ]
+            if self.test_conn:
+                cursor = self.test_conn.cursor()
+                cursor.execute("SELECT consumer, topic, message_id, message, timestamp FROM consumptions ORDER BY timestamp DESC LIMIT 100")
+                rows = cursor.fetchall()
+                consumptions = [{"consumer": r[0], "topic": r[1], "message_id": r[2], "message": json.loads(r[3]) if r[3] else {}, "timestamp": r[4]} for r in rows]
                 logger.info(f"Retrieved {len(consumptions)} consumption events")
                 return consumptions
+            else:
+                with self._get_read_connection() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT consumer, topic, message_id, message, timestamp FROM consumptions ORDER BY timestamp DESC LIMIT 100")
+                    rows = cursor.fetchall()
+                    consumptions = [{"consumer": r[0], "topic": r[1], "message_id": r[2], "message": json.loads(r[3]) if r[3] else {}, "timestamp": r[4]} for r in rows]
+                    logger.info(f"Retrieved {len(consumptions)} consumption events")
+                    return consumptions
         except sqlite3.Error as e:
-            logger.error(f"Database error retrieving consumptions: {e}")
+            logger.error(f"Error fetching consumptions: {e}")
             return []
-        finally:
-            if conn:
-                self.close_db_connection(conn)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding consumption JSON: {e}")
+            return []
+
+    def get_graph_state(self) -> Dict[str, Any]:
+        try:
+            if self.test_conn:
+                c = self.test_conn.cursor()
+            else:
+                conn = self._get_read_connection()
+                c = conn.cursor()
+
+            c.execute("SELECT DISTINCT producer FROM messages")
+            producers = [row[0] for row in c.fetchall()]
+            c.execute("SELECT DISTINCT consumer FROM subscriptions UNION SELECT DISTINCT consumer FROM consumptions")
+            consumers = [row[0] for row in c.fetchall()]
+            c.execute("SELECT DISTINCT topic FROM messages UNION SELECT DISTINCT topic FROM subscriptions")
+            topics = [row[0] for row in c.fetchall()]
+            c.execute("SELECT topic, consumer FROM subscriptions")
+            subscriptions = [{"source": row[0], "target": row[1], "type": "consume"} for row in c.fetchall()]
+            c.execute("SELECT DISTINCT producer, topic FROM messages")
+            publications = [{"source": row[0], "target": row[1], "type": "publish"} for row in c.fetchall()]
+
+            if not self.test_conn:
+                # noinspection PyUnboundLocalVariable
+                conn.close()
+
+            return {"producers": producers, "consumers": consumers, "topics": topics, "links": subscriptions + publications}
+        except sqlite3.Error as e:
+            logger.error(f"Error fetching graph state: {e}")
+            return {"producers": [], "consumers": [], "topics": [], "links": []}
 
 
-# Create the Broker instance with the real database filename
-# This line is executed only if __name__ == "__main__"
-# For tests, the Broker is instantiated via the fixture
+# 3. Initialisation de Flask, SocketIO et du Broker
+app = Flask(__name__)
+app.config["SECRET_KEY"] = "secret!"
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 broker = Broker(DB_FILE_NAME)
 
 
-# noinspection PyTypeChecker
+# 4. Définition des routes Flask et des handlers SocketIO
 @app.route("/publish", methods=["POST"])
-def publish() -> Tuple[Dict[str, str], int]:
+def publish() -> Tuple[flask.Response, int]:
     data = request.json
-    topic = data.get("topic")
-    message_id = data.get("message_id")
-    message = data.get("message")
-    producer = data.get("producer")
-
-    if not all([topic, message_id, message, producer]):
+    topic, msg_id, msg, prod = data.get("topic"), data.get("message_id"), data.get("message"), data.get("producer")
+    if not all([topic, msg_id, msg, prod]):
         logger.error("Publish failed: Missing topic, message_id, message, or producer")
-        return jsonify(
-            {"status": "error", "message": "Missing topic, message_id, message, or producer"}), 400
+        return jsonify({"status": "error", "message": "Missing topic, message_id, message, or producer"}), 400
 
-    logger.info(f"Publishing message {message_id} to topic {topic} by {producer}")
-    # The real broker will be used here, not the mock
-    broker.save_message(topic=topic, message_id=message_id, message=message, producer=producer)
-
-    payload = {"topic": topic, "message_id": message_id, "message": message, "producer": producer}
-
-    socketio.emit("message", payload, to=topic)
-
+    logger.info(f"Publishing message {msg_id} to topic {topic} by {prod}")
+    broker.save_message(topic=topic, message_id=msg_id, message=msg, producer=prod)
+    socketio.emit("message", data, to=topic)
     return jsonify({"status": "ok"}), 200
 
 
@@ -385,26 +425,23 @@ def consumptions() -> flask.Response:
     return jsonify(broker.get_consumptions())
 
 
-@app.route("/health")
-def health_check() -> flask.Response:
-    """Health check endpoint to monitor system status."""
-    try:
-        # Try a simple DB query to ensure DB is accessible
-        conn = None
-        with broker._db_lock:
-            conn = broker.get_db_connection()
-            c = conn.cursor()
-            c.execute("SELECT 1")
-            c.fetchone()
-        if conn:
-            broker.close_db_connection(conn)
+@app.route("/graph/state")
+def graph_state() -> flask.Response:
+    logger.info("Fetching graph state")
+    return jsonify(broker.get_graph_state())
 
-        # noinspection PyTypeChecker
+
+@app.route("/health")
+def health_check() -> Tuple[flask.Response, int]:
+    """Health check endpoint to monitor system status."""
+    if not db_ready_event.is_set():
+        return jsonify({"status": "unhealthy", "reason": "Database not ready"}), 503
+    try:
+        broker.get_clients()  # Fait un simple test de lecture
         return jsonify({"status": "healthy", "timestamp": time.time()}), 200
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        # noinspection PyTypeChecker
-        return jsonify({"status": "unhealthy", "error": str(e), "timestamp": time.time()}), 503
+        return jsonify({"status": "unhealthy", "error": str(e)}), 503
 
 
 @app.route("/")
@@ -444,113 +481,90 @@ def serve_circular_graph() -> flask.Response:
 
 @socketio.on("subscribe")
 def handle_subscribe(data: Dict[str, Any]) -> None:
-    consumer = data.get("consumer")
-    topics = data.get("topics", [])
+    try:
+        # noinspection PyUnresolvedReferences
+        sid = request.sid
+        consumer, topics = data.get("consumer"), data.get("topics", [])
+        if not all([sid, consumer, topics]):
+            logger.warning(f"Invalid subscribe data: {data}")
+            return
 
-    # noinspection PyUnresolvedReferences
-    sid = request.sid  # request.sid is dynamically added by Flask-SocketIO
+        logger.info(f"Subscribing {consumer} (SID: {sid}) to topics: {topics}")
+        for topic in topics:
+            if not isinstance(topic, str):
+                logger.warning(f"Invalid topic type: {type(topic)}")
+                continue
 
-    if sid is None:
-        logger.error("No session ID available for subscription")
-        return
-
-    logger.info(f"Subscribing {consumer} to topics {topics} (SID: {sid})")
-    for topic in topics:
-        join_room(topic)
-        broker.register_subscription(str(sid), str(consumer), topic)
-        emit(
-            "message",
-            {
-                "topic": topic,
-                "message_id": f"sub_conf_{int(time.time())}",
-                "message": f"Subscribed to {topic}",
-                "producer": "server",
-            },
-            to=sid,
-        )
+            join_room(topic)
+            broker.register_subscription(sid, consumer, topic)
+            emit("message", {"topic": topic, "message_id": f"subscribe_{topic}", "message": f"Subscribed to {topic}", "producer": "server"}, to=sid)
+    except Exception as e:
+        logger.error(f"Error in handle_subscribe: {e}")
 
 
 @socketio.on("consumed")
 def handle_consumed(data: Dict[str, Any]) -> None:
-    consumer = data.get("consumer")
-    topic = data.get("topic")
-    message_id = data.get("message_id")
-    message = data.get("message")
+    try:
+        consumer, topic, msg_id, msg = data.get("consumer"), data.get("topic"), data.get("message_id"), data.get("message")
+        if not all([consumer, topic, msg_id]):
+            logger.warning(f"Incomplete consumption data received: {data}")
+            return
 
-    if not all([consumer, topic, message_id, message]):
-        logger.warning(f"Incomplete consumption data received: {data}")
-        return
+        # Convertir le message en str si c'est un dict ou autre type
+        if isinstance(msg, dict):
+            msg = str(msg)
 
-    logger.info(f"Handling consumption by {consumer} for message {message_id} in topic {topic}")
-    broker.save_consumption(str(consumer), str(topic), str(message_id), str(message))
-
-    # ✨ LINE TO ADD ✨
-    # Rebroadcast the event to all clients to update graphs.
-    socketio.emit("consumed", data)
+        logger.info(f"Handling consumption by {consumer} for message {msg_id} in topic {topic}")
+        broker.save_consumption(consumer, topic, msg_id, msg)
+        socketio.emit("consumed", data)
+    except Exception as e:
+        logger.error(f"Error in handle_consumed: {e}")
 
 
 @socketio.on("disconnect")
-def handle_disconnect() -> None:  # <-- Signature without explicit argument for the SID
-    """Handle client disconnection."""
-    # noinspection PyUnresolvedReferences
-    sid = request.sid  # Always get SID via request.sid
-    logger.info(f"Client disconnected (SID: {sid})")
-    broker.unregister_client(sid)
-
-
-@app.route("/graph/state")
-def graph_state() -> flask.Response:
-    """
-    Returns the current state of producers, topics, and consumers for graph initialization.
-    """
-    conn = None
+def handle_disconnect() -> None:
     try:
-        # noinspection PyProtectedMember
-        with broker._db_lock:  # Thread-safe DB access
-            conn = broker.get_db_connection()
-            c = conn.cursor()
-
-            # Get all unique producers from messages
-            c.execute("SELECT DISTINCT producer FROM messages")
-            producers = [row[0] for row in c.fetchall()]
-
-            # Get all unique consumers from subscriptions/consumptions
-            c.execute("SELECT DISTINCT consumer FROM subscriptions UNION SELECT DISTINCT consumer FROM consumptions")
-            consumers = [row[0] for row in c.fetchall()]
-
-            # Get all unique topics
-            c.execute("SELECT DISTINCT topic FROM messages UNION SELECT DISTINCT topic FROM subscriptions UNION SELECT DISTINCT topic FROM consumptions")
-            topics = [row[0] for row in c.fetchall()]
-
-            # Get all active subscriptions (links from topic to consumer)
-            c.execute("SELECT topic, consumer FROM subscriptions")
-            subscriptions = [{"source": row[0], "target": row[1], "type": "consume"} for row in c.fetchall()]
-
-            # Get all producer->topic relationships from messages
-            c.execute("SELECT DISTINCT producer, topic FROM messages")
-            publications = [{"source": row[0], "target": row[1], "type": "publish"} for row in c.fetchall()]
-
-            state = {
-                "producers": producers,
-                "consumers": consumers,
-                "topics": topics,
-                "links": subscriptions + publications
-            }
-        return jsonify(state)
-
-    except sqlite3.Error as e:
-        logger.error(f"Database error retrieving graph state: {e}")
-        # noinspection PyTypeChecker
-        return jsonify({"error": "Failed to retrieve graph state"}), 500
-    finally:
-        if conn:
-            broker.close_db_connection(conn)
+        # noinspection PyUnresolvedReferences
+        sid = request.sid
+        logger.info(f"Client disconnecting (SID: {sid})")
+        broker.unregister_client(sid)
+    except Exception as e:
+        logger.error(f"Error in handle_disconnect: {e}")
 
 
+# 5. Point d'entrée principal avec démarrage et arrêt propres
 def main() -> None:
-    """Entry point for the pubsub server."""
-    logger.info("Starting Flask-SocketIO server on port 5000")
-    socketio.run(app, host="0.0.0.0", port=5000)  # nosec B104
+    """Démarre le worker BDD, attend sa confirmation, puis lance le serveur Flask."""
+    stop_worker_event = threading.Event()
+
+    logger.info(f"Starting DatabaseWorker for '{DB_FILE_NAME}'...")
+    db_worker = DatabaseWorker(DB_FILE_NAME, stop_worker_event)
+    db_worker.start()
+
+    logger.info("Main thread waiting for database to be ready...")
+    db_is_ready = db_ready_event.wait(timeout=10)
+    if not db_is_ready:
+        logger.error("Database worker failed to initialize in time. Exiting.")
+        stop_worker_event.set()
+        with db_write_queue_lock:
+            db_write_queue.append(None)
+        db_worker.join(timeout=5)
+        return
+
+    logger.info("Database is ready. Starting Flask-SocketIO server on port 5000.")
+    try:
+        socketio.run(app, host="0.0.0.0", port=5000, log_output=False, use_reloader=False)
+    except KeyboardInterrupt:
+        logger.info("Keyboard interrupt received.")
+    except Exception as e:
+        logger.error(f"Server error: {e}")
+    finally:
+        logger.info("Shutting down...")
+        stop_worker_event.set()
+        with db_write_queue_lock:
+            db_write_queue.append(None)
+        db_worker.join(timeout=5)
+        logger.info("Shutdown complete.")
 
 
 if __name__ == "__main__":
