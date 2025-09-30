@@ -33,7 +33,8 @@ COPY src/ /app/src/
 # --- CORRECTION 2: Copier les fichiers statiques AU BON ENDROIT ---
 # Copie les fichiers web dans /app/src, pour que send_from_directory(".", ...) les trouve.
 COPY static/ /app/src/static/
-COPY migrations/ /app/src/migrations/
+# Copie migrations dans /app (un niveau au-dessus) car le code fait os.path.join(__file__, '..', 'migrations')
+COPY migrations/ /app/migrations/
 COPY control-panel.html /app/src/control-panel.html
 COPY activity-map.html /app/src/activity-map.html
 COPY network-graph.html /app/src/network-graph.html
