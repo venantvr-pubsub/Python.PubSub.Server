@@ -23,6 +23,7 @@ db = AsyncSQLite(DB_FILE_NAME)
 
 
 # 3. Le Broker simplifié
+# noinspection PyShadowingNames
 class Broker:
     """
     Sert d'interface entre la logique de l'application et la librairie
