@@ -1,20 +1,22 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = [
+    "setuptools>=61.0",
+    "wheel",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
-# CORRECTION : Nom du package aligné sur le dépôt
-name = "Python.PubSub.Server"
+name = "python_pubsub_server"
 version = "1.0.0"
 description = "A real-time Publisher-Subscriber system using WebSockets"
 readme = "README.md"
 requires-python = ">=3.8"
 license = "MIT"
 authors = [
-    { name = "venantvr", email = "venantvr@gmail.com" }
+    { name = "venantvr", email = "venantvr@gmail.com" },
 ]
 maintainers = [
-    { name = "venantvr", email = "venantvr@gmail.com" }
+    { name = "venantvr", email = "venantvr@gmail.com" },
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -36,7 +38,7 @@ dependencies = [
     "python-socketio>=5.10.0",
     "requests>=2.32.4",
     "python-dotenv>=1.1.1",
-    "async-sqlite-queue @ git+https://github.com/venantvr-pubsub/Python.SQLite.Async.git"
+    "python_sqlite_async @ git+https://github.com/venantvr-pubsub/Python.SQLite.Async.git",
 ]
 
 [project.optional-dependencies]
@@ -55,22 +57,25 @@ docs = [
     "sphinx-autodoc-typehints>=1.24.0",
 ]
 
-# CORRECTION : Toutes les URLs pointent maintenant vers le bon dépôt
 [project.urls]
 Homepage = "https://github.com/venantvr-pubsub/Python.PubSub.Server"
 Repository = "https://github.com/venantvr-pubsub/Python.PubSub.Server.git"
 Issues = "https://github.com/venantvr-pubsub/Python.PubSub.Server/issues"
 
+[project.scripts]
+pubsub-server = "pubsub_ws:main"
+
 [tool.setuptools]
-package-dir = { "" = "src" }
 include-package-data = true
 zip-safe = false
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools.package-dir]
+"" = "src"
 
-[project.scripts]
-pubsub-server = "pubsub_ws:main"
+[tool.setuptools.packages.find]
+where = [
+    "src",
+]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -78,8 +83,16 @@ addopts = [
     "-ra",
     "--strict-markers",
 ]
-testpaths = ["tests"]
-python_files = ["test_*.py", "*_test.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
-
+testpaths = [
+    "tests",
+]
+python_files = [
+    "test_*.py",
+    "*_test.py",
+]
+python_classes = [
+    "Test*",
+]
+python_functions = [
+    "test_*",
+]
