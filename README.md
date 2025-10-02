@@ -37,12 +37,12 @@ pip install -r requirements.txt
 Une fois les dépendances installées, vous pouvez démarrer le serveur :
 
 ```bash
-python src/pubsub_ws.py
+python -m python_pubsub_server.pubsub_ws
 ```
 
 Le serveur démarrera et écoutera sur `http://0.0.0.0:5000`. La première fois, il créera et initialisera une base de données SQLite nommée `pubsub.db`.
 
-Vous pouvez accéder à une interface de démonstration simple en ouvrant `http://localhost:5000/client.html` dans votre navigateur.
+Vous pouvez accéder au panneau de contrôle en ouvrant `http://localhost:5000/` dans votre navigateur.
 
 ## 📝 Référence de l'API
 
@@ -208,14 +208,15 @@ pytest -v
 ```
 Python.PubSub.Server/
 ├── src/
-│   └── pubsub_ws.py             # Implémentation principale du serveur
+│   └── python_pubsub_server/    # Package principal
+│       ├── pubsub_ws.py         # Implémentation du serveur
+│       ├── *.html               # Interfaces web (control-panel, network-graph, etc.)
+│       └── static/              # Fichiers statiques (CSS, JS)
 ├── migrations/
 │   └── 001_...sql               # Scripts de migration de la base de données
 ├── tests/                       # Suite de tests
 │   ├── test_pubsub_ws.py
 │   └── ...
-├── client.html                  # Interface web de démonstration
-├── static/                      # Fichiers statiques (CSS, JS) pour client.html
 ├── requirements.txt             # Dépendances du projet
 └── README.md                    # Ce fichier
 ```

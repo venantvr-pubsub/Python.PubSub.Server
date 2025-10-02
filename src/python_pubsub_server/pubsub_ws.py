@@ -231,7 +231,7 @@ def main() -> None:
     """Démarre le worker BDD, gère l'init du schéma, puis lance le serveur Flask."""
 
     # La préparation du chemin du script ne change pas
-    migration_script = os.path.join(os.path.dirname(__file__), '..', 'migrations', '001_add_message_id_and_producer.sql')
+    migration_script = os.path.join(os.path.dirname(__file__), '..', '..', 'migrations', '001_add_message_id_and_producer.sql')
     migration_script = os.path.normpath(migration_script)
 
     # NOUVEAU : Démarrage simple du worker

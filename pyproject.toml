@@ -63,7 +63,7 @@ Repository = "https://github.com/venantvr-pubsub/Python.PubSub.Server.git"
 Issues = "https://github.com/venantvr-pubsub/Python.PubSub.Server/issues"
 
 [project.scripts]
-pubsub-server = "pubsub_ws:main"
+pubsub-server = "python_pubsub_server.pubsub_ws:main"
 
 [tool.setuptools]
 include-package-data = true

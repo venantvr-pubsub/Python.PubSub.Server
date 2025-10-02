@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch  # noqa: E402
 import pytest  # noqa: E402
 from flask import request  # noqa: E402
 
-from pubsub_ws import (  # noqa: E402
+from python_pubsub_server.pubsub_ws import (  # noqa: E402
     Broker,
     app,
     handle_disconnect,
@@ -38,7 +38,7 @@ def test_broker(mock_db):
 @pytest.fixture
 def socketio_test_client(test_broker):
     """Creates a Socket.IO test client for the Flask application."""
-    with patch("pubsub_ws.broker", new=test_broker):
+    with patch("python_pubsub_server.pubsub_ws.broker", new=test_broker):
         client = socketio.test_client(app)
         yield client
         client.disconnect()
@@ -47,7 +47,7 @@ def socketio_test_client(test_broker):
 @pytest.fixture
 def flask_test_client(test_broker):
     """Creates a Flask test client for the application."""
-    with patch("pubsub_ws.broker", new=test_broker), app.test_client() as client:
+    with patch("python_pubsub_server.pubsub_ws.broker", new=test_broker), app.test_client() as client:
         yield client
 
 
@@ -175,7 +175,7 @@ def test_publish_endpoint(flask_test_client, test_broker):
     }
 
     with patch.object(test_broker, "save_message") as mock_save, patch(
-            "pubsub_ws.socketio.emit"
+            "python_pubsub_server.pubsub_ws.socketio.emit"
     ) as mock_emit:
         response = flask_test_client.post("/publish", json=payload)
         assert response.status_code == 200
@@ -236,7 +236,7 @@ def test_socketio_subscribe(socketio_test_client, test_broker, mocker):
     with app.test_request_context("/"):
         request.sid = test_sid
 
-        with patch("pubsub_ws.join_room") as mock_join_room, patch.object(
+        with patch("python_pubsub_server.pubsub_ws.join_room") as mock_join_room, patch.object(
                 test_broker, "register_subscription"
         ) as mock_register_subscription:
             handle_subscribe({"consumer": consumer_name, "topics": topics})
