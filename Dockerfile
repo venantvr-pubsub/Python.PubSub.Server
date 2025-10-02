@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y gcc git && rm -rf /var/lib/apt/lists/*
 # Copy files required for package installation
 COPY pyproject.toml README.md ./
 COPY src/python_pubsub_server ./src/python_pubsub_server
-COPY migrations ./src/python_pubsub_server/migrations
 
 # Install the package and its dependencies globally
 RUN pip install --no-cache-dir .

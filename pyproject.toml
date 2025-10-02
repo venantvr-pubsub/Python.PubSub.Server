@@ -77,6 +77,14 @@ where = [
     "src",
 ]
 
+[tool.setuptools.package-data]
+python_pubsub_server = [
+    "migrations/*.sql",
+    "static/*.js",
+    "static/*.css",
+    "*.html",
+]
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = [
