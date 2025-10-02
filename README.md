@@ -210,10 +210,12 @@ Python.PubSub.Server/
 ├── src/
 │   └── python_pubsub_server/    # Package principal
 │       ├── pubsub_ws.py         # Implémentation du serveur
+│       ├── migrations/          # Scripts de migration (inclus dans le package)
+│       │   └── 001_...sql
 │       ├── *.html               # Interfaces web (control-panel, network-graph, etc.)
 │       └── static/              # Fichiers statiques (CSS, JS)
-├── migrations/
-│   └── 001_...sql               # Scripts de migration de la base de données
+├── migrations/                  # Copie des migrations (pour référence)
+│   └── 001_...sql
 ├── tests/                       # Suite de tests
 │   ├── test_pubsub_ws.py
 │   └── ...

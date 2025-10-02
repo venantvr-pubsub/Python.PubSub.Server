@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y gcc git && rm -rf /var/lib/apt/lists/*
 # Copy files required for package installation
 COPY pyproject.toml README.md ./
 COPY src/python_pubsub_server ./src/python_pubsub_server
+COPY migrations ./src/python_pubsub_server/migrations
 
 # Install the package and its dependencies globally
 RUN pip install --no-cache-dir .
@@ -23,14 +24,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Répertoire de travail est /app
 WORKDIR /app
 
-# Copie les dépendances depuis le builder
+# Copie les dépendances depuis le builder (incluant le package installé avec les migrations)
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-
-# Copie le code de l'application
-COPY src/python_pubsub_server/ /app/src/python_pubsub_server/
-
-# Copie migrations dans /app car le code fait os.path.join(__file__, '..', '..', 'migrations')
-COPY migrations/ /app/migrations/
 
 # Création de l'utilisateur non-root
 # On lui donne les droits sur /app entier

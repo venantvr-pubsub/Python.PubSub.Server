@@ -9,7 +9,7 @@ include Dockerfile
 include docker-compose.yml
 include .gitignore
 
-recursive-include src *.py *.html *.js *.css
+recursive-include src *.py *.html *.js *.css *.sql
 recursive-include tests *.py
 recursive-include migrations *.py *.sql
 recursive-include docs *.md *.rst *.txt
