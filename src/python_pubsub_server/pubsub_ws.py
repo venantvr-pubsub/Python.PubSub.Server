@@ -280,5 +280,6 @@ def main() -> None:
         db.stop()
         logger.info("Shutdown complete.")
 
+
 if __name__ == "__main__":
     main()
