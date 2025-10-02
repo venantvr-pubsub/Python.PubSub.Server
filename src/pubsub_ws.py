@@ -5,11 +5,12 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import flask
-# Import de votre nouvelle librairie
-from async_sqlite_queue import AsyncSQLite
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, send_from_directory
 from flask_socketio import SocketIO, join_room
+from python_sqlite_async import AsyncSQLite
+
+# Import de votre nouvelle librairie
 
 # 1. Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(threadName)s - %(message)s')
