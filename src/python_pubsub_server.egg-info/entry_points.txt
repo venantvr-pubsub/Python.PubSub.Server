@@ -1,0 +1,2 @@
+[console_scripts]
+pubsub-server = python_pubsub_server.pubsub_ws:main
