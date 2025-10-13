@@ -11,12 +11,12 @@ body {
     flex-direction: column;
 }
 
-.container-fluid {
+/* .container-fluid {
     display: flex;
     flex-direction: column;
     flex-grow: 1;
     min-height: 0;
-}
+} */
 
 h1, h2 {
     color: #61dafb;
