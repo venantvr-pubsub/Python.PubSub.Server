@@ -1,0 +1,33 @@
+/**
+ * network-graph.css
+ * Specific styles for the force-directed network graph
+ */
+
+/* Network graph has slightly thinner links for clarity */
+.link {
+    stroke-opacity: 0.6;
+    stroke-width: 2px;
+}
+
+/* Nodes can be dragged around */
+.node circle {
+    r: 18;
+    cursor: move;
+    transition: r 0.2s ease;
+}
+
+.node circle:hover {
+    r: 22;
+}
+
+/* Text positioning for network graph */
+.node text {
+    text-anchor: middle;
+    dy: 35px;
+    font-size: 12px;
+}
+
+/* Connector dots for network graph */
+.connector {
+    r: 4;
+}
