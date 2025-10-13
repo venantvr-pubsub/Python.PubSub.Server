@@ -2,7 +2,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const navItems = [
         {href: '/control-panel.html', label: 'Control Panel'},
         {href: '/activity-map.html', label: 'Activity Map'},
-        {href: '/network-graph.html', label: 'Network Graph'},
         {href: '/circular-graph.html', label: 'Circular Graph'}
     ];
 

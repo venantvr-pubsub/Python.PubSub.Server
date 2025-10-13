@@ -7,9 +7,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const nodes = new Set();
 
+    // Add "En attente..." placeholder to each column
+    const addPlaceholder = (column, type) => {
+        const placeholderId = `placeholder-${type}`;
+        const placeholder = document.createElement('div');
+        placeholder.id = placeholderId;
+        placeholder.className = 'placeholder-text';
+        placeholder.textContent = 'En attente...';
+        column.appendChild(placeholder);
+    };
+
+    // Remove placeholder when first node is added
+    const removePlaceholder = (column, type) => {
+        const placeholderId = `placeholder-${type}`;
+        const placeholder = document.getElementById(placeholderId);
+        if (placeholder) {
+            placeholder.remove();
+        }
+    };
+
+    // Initialize placeholders
+    addPlaceholder(producersCol, 'producer');
+    addPlaceholder(topicsCol, 'topic');
+    addPlaceholder(consumersCol, 'consumer');
+
     const drawNode = (name, type, column) => {
         const nodeId = `node-${type}-${name}`;
         if (!nodes.has(nodeId)) {
+            // Remove placeholder when adding first node
+            removePlaceholder(column, type);
+
             nodes.add(nodeId);
             const nodeEl = document.createElement('div');
             nodeEl.id = nodeId;

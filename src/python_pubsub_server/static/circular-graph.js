@@ -32,8 +32,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         createSimulation: (width, height) => {
             return d3.forceSimulation()
-                .force("charge", d3.forceManyBody().strength(-200))
-                .force("center", d3.forceCenter(width / 2, height / 2));
+                .force("charge", d3.forceManyBody().strength(-50))
+                .force("center", d3.forceCenter(width / 2, height / 2))
+                .alphaDecay(0.1)
+                .velocityDecay(0.8);
         },
 
         positionNodes: (nodes, width, height) => {

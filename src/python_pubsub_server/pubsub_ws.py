@@ -17,7 +17,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 load_dotenv()
-DB_FILE_NAME = os.getenv("DATABASE_FILE", "pubsub.db")
+DB_FILE_NAME = os.getenv("DATABASE_FILE", ":memory:")
+MAX_ROWS_PER_TABLE = int(os.getenv("MAX_ROWS_PER_TABLE", "5000"))
 
 # 2. Initialisation de la base de données via la librairie
 db = AsyncSQLite(DB_FILE_NAME)
@@ -31,8 +32,27 @@ class Broker:
     de base de données asynchrone.
     """
 
-    def __init__(self, db_manager: AsyncSQLite) -> None:
+    def __init__(self, db_manager: AsyncSQLite, max_rows: int = 5000) -> None:
         self.db = db_manager
+        self.max_rows = max_rows
+
+    def cleanup_old_rows(self, table_name: str, order_column: str) -> None:
+        """
+        Supprime les anciennes lignes d'une table si elle dépasse max_rows.
+        Garde les lignes les plus récentes selon order_column.
+        """
+        if self.max_rows <= 0:
+            return
+
+        sql = f"""
+        DELETE FROM {table_name}
+        WHERE rowid IN (
+            SELECT rowid FROM {table_name}
+            ORDER BY {order_column} DESC
+            LIMIT -1 OFFSET ?
+        )
+        """
+        self.db.execute_write(sql, (self.max_rows,))
 
     def register_subscription(self, sid: str, consumer: str, topic: str) -> None:
         if not all([sid, consumer, topic]):
@@ -42,6 +62,7 @@ class Broker:
         sql = "INSERT OR REPLACE INTO subscriptions (sid, consumer, topic, connected_at) VALUES (?, ?, ?, ?)"
         params = (sid, consumer, topic, time.time())
         self.db.execute_write(sql, params)
+        self.cleanup_old_rows("subscriptions", "connected_at")
         socketio.emit("new_client", {"consumer": consumer, "topic": topic, "connected_at": time.time()})
 
     def unregister_client(self, sid: str) -> None:
@@ -61,6 +82,7 @@ class Broker:
         message_json = json.dumps(message) if not isinstance(message, str) else message
         params = (topic, message_id, message_json, producer, time.time())
         self.db.execute_write(sql, params)
+        self.cleanup_old_rows("messages", "timestamp")
         socketio.emit("new_message", {"topic": topic, "message_id": message_id, "message": message, "producer": producer, "timestamp": time.time()})
 
     def save_consumption(self, consumer: str, topic: str, message_id: str, message: Any) -> None:
@@ -68,6 +90,7 @@ class Broker:
         message_json = json.dumps(message) if not isinstance(message, str) else message
         params = (consumer, topic, message_id, message_json, time.time())
         self.db.execute_write(sql, params)
+        self.cleanup_old_rows("consumptions", "timestamp")
         socketio.emit("new_consumption", {"consumer": consumer, "topic": topic, "message_id": message_id, "message": message, "timestamp": time.time()})
 
     def get_client_by_sid(self, sid: str) -> Optional[Tuple[str, str]]:
@@ -114,7 +137,7 @@ class Broker:
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
-broker = Broker(db)
+broker = Broker(db, max_rows=MAX_ROWS_PER_TABLE)
 
 
 # 5. Routes Flask et Handlers SocketIO
@@ -182,11 +205,6 @@ def serve_static(filename: str) -> flask.Response:
 @app.route("/activity-map.html")
 def serve_activity_map() -> flask.Response:
     return send_from_directory(".", "activity-map.html")
-
-
-@app.route("/network-graph.html")
-def serve_network_graph() -> flask.Response:
-    return send_from_directory(".", "network-graph.html")
 
 
 @app.route("/circular-graph.html")

@@ -29,6 +29,15 @@ body {
     min-width: 150px;
 }
 
+.placeholder-text {
+    color: #6c757d;
+    font-style: italic;
+    padding: 10px;
+    margin: 10px;
+    text-align: center;
+    opacity: 0.6;
+}
+
 #map-svg {
     position: absolute;
     top: 0;
