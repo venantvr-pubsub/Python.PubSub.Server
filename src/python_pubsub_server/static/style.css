@@ -36,13 +36,21 @@ hr {
     flex-shrink: 0;
 }
 
+.navbar .container-fluid {
+    flex-wrap: nowrap;
+    align-items: center;
+}
+
 .navbar-brand {
     color: #61dafb !important;
     font-weight: bold;
+    white-space: nowrap;
+    margin-right: 1rem;
 }
 
 .navbar-toggler {
     border-color: #61dafb;
+    margin-left: auto;
 }
 
 .navbar-toggler:focus {
@@ -53,8 +61,18 @@ hr {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(97, 218, 251, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
+.navbar-collapse {
+    flex-grow: 0;
+}
+
+.navbar-nav {
+    flex-direction: row;
+    margin-left: 0 !important;
+}
+
 .nav-link {
     color: #a9a9a9 !important;
+    white-space: nowrap;
 }
 
 .nav-link.active {
@@ -62,6 +80,7 @@ hr {
     font-weight: bold;
 }
 
+/* Menu mobile */
 @media (max-width: 991.98px) {
     .navbar-collapse {
         background-color: #20232a;
@@ -69,6 +88,20 @@ hr {
         margin-top: 0.5rem;
         border-radius: 0.375rem;
         border: 1px solid #61dafb;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 1000;
+    }
+
+    .navbar-nav {
+        flex-direction: column !important;
+        margin-bottom: 0 !important;
+    }
+
+    .nav-link {
+        padding: 0.5rem 1rem !important;
     }
 }
 
