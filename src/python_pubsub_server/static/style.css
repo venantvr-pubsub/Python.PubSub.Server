@@ -36,6 +36,10 @@ hr {
     flex-shrink: 0;
 }
 
+.navbar .container-fluid {
+    flex-wrap: nowrap !important;
+}
+
 .navbar-brand {
     color: #61dafb !important;
     font-weight: bold;
@@ -53,6 +57,10 @@ hr {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(97, 218, 251, 1)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
 }
 
+.navbar-nav {
+    flex-direction: row !important;
+}
+
 .nav-link {
     color: #a9a9a9 !important;
 }
@@ -63,6 +71,10 @@ hr {
 }
 
 @media (max-width: 991.98px) {
+    .navbar-nav {
+        flex-direction: column !important;
+    }
+
     .navbar-collapse {
         background-color: #20232a;
         padding: 1rem;
