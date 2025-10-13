@@ -9,10 +9,10 @@
     <link href="/static/style.css" rel="stylesheet">
     <link href="/static/circular-graph.css" rel="stylesheet">
 </head>
-<body class="p-4">
+<body>
 
 <nav class="navbar navbar-expand-lg navbar-dark fixed-top">
-    <div class="container">
+    <div class="container-fluid">
         <a class="navbar-brand" href="#">Pub/Sub Monitor</a>
         <button aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation" class="navbar-toggler" data-bs-target="#navbarNav"
                 data-bs-toggle="collapse"
@@ -26,7 +26,7 @@
     </div>
 </nav>
 
-<div class="container-fluid" style="padding-top: 70px;">
+<div class="container-fluid" style="padding-top: 70px; padding-left: 1.5rem; padding-right: 1.5rem;">
     <h1 class="text-center">Circular Graph</h1>
     <div id="activity-graph-container">
         <svg height="100%" id="activity-svg" width="100%"></svg>
