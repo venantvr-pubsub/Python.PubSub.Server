@@ -1,215 +1,91 @@
-/**
- * activity-map.js
- * Activity Map visualization using D3.js with a 3-column layout.
- * Shows producers, topics, and consumers in vertical columns with animated arrows.
- */
-
 document.addEventListener("DOMContentLoaded", () => {
     const socket = io();
-    const svg = d3.select("#map-svg");
-    const width = svg.node().getBoundingClientRect().width;
-    const height = svg.node().getBoundingClientRect().height;
+    const producersCol = document.getElementById('producers-col');
+    const topicsCol = document.getElementById('topics-col');
+    const consumersCol = document.getElementById('consumers-col');
+    const svg = document.getElementById('map-svg');
 
-    // Create groups for organized rendering
-    const g = svg.append("g");
-    const linkGroup = g.append("g").attr("class", "links");
-    const nodeGroup = g.append("g").attr("class", "nodes");
-    const labelGroup = g.append("g").attr("class", "labels");
+    const nodes = new Set();
 
-    // Column configuration
-    const COLUMN_WIDTH = width / 3;
-    const NODE_SPACING = 80;
-    const COLUMN_PADDING = 60;
-    const NODE_RADIUS = 25;
-
-    // Data structures
-    const nodeMap = new Map();
-    const producers = [];
-    const topics = [];
-    const consumers = [];
-
-    // --- Arrow markers definition ---
-    svg.append("defs").selectAll("marker")
-        .data(["publish", "consume"])
-        .enter().append("marker")
-        .attr("id", d => `arrow-${d}`)
-        .attr("viewBox", "0 -5 10 10")
-        .attr("refX", 20)
-        .attr("refY", 0)
-        .attr("markerWidth", 6)
-        .attr("markerHeight", 6)
-        .attr("orient", "auto")
-        .append("path")
-        .attr("d", "M0,-5L10,0L0,5")
-        .style("fill", d => d === 'publish' ? '#28a745' : '#ffab40');
-
-    // --- Column headers ---
-    const headers = [
-        { x: COLUMN_WIDTH / 2, y: 40, text: "Producers" },
-        { x: COLUMN_WIDTH * 1.5, y: 40, text: "Topics" },
-        { x: COLUMN_WIDTH * 2.5, y: 40, text: "Consumers" }
-    ];
-
-    labelGroup.selectAll(".column-header")
-        .data(headers)
-        .enter()
-        .append("text")
-        .attr("class", "column-header")
-        .attr("x", d => d.x)
-        .attr("y", d => d.y)
-        .attr("text-anchor", "middle")
-        .style("font-size", "20px")
-        .style("font-weight", "600")
-        .style("fill", "#61dafb")
-        .text(d => d.text);
-
-    // --- Helper functions ---
-
-    function getColumnX(type) {
-        if (type === 'producer') return COLUMN_WIDTH / 2;
-        if (type === 'topic') return COLUMN_WIDTH * 1.5;
-        return COLUMN_WIDTH * 2.5;
-    }
-
-    function getColumnNodes(type) {
-        if (type === 'producer') return producers;
-        if (type === 'topic') return topics;
-        return consumers;
-    }
-
-    function calculateNodeY(index, totalNodes) {
-        const availableHeight = height - COLUMN_PADDING * 2;
-        const spacing = Math.min(NODE_SPACING, availableHeight / (totalNodes + 1));
-        return COLUMN_PADDING + (index + 1) * spacing;
-    }
-
-    function addOrUpdateNode(id, type) {
-        let node = nodeMap.get(id);
-        if (!node) {
-            const columnNodes = getColumnNodes(type);
-            node = {
-                id,
-                name: id,
-                type,
-                x: getColumnX(type),
-                y: 0 // Will be updated by repositionNodes
-            };
-            columnNodes.push(node);
-            nodeMap.set(id, node);
-            repositionNodes(type);
-            return true;
+    const drawNode = (name, type, column) => {
+        const nodeId = `node-${type}-${name}`;
+        if (!nodes.has(nodeId)) {
+            nodes.add(nodeId);
+            const nodeEl = document.createElement('div');
+            nodeEl.id = nodeId;
+            nodeEl.className = 'node';
+            nodeEl.textContent = name;
+            column.appendChild(nodeEl);
         }
-        return false;
-    }
+        return nodeId;
+    };
 
-    function repositionNodes(type) {
-        const columnNodes = getColumnNodes(type);
-        columnNodes.forEach((node, i) => {
-            node.y = calculateNodeY(i, columnNodes.length);
-        });
-    }
+    const drawArrow = (startId, endId, arrowType = 'consume') => {
+        const startEl = document.getElementById(startId);
+        const endEl = document.getElementById(endId);
+        if (!startEl || !endEl) return;
 
-    function getConnectorPosition(node, targetNode) {
-        const dx = targetNode.x - node.x;
-        const dy = targetNode.y - node.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const mapRect = svg.getBoundingClientRect();
+        const startRect = startEl.getBoundingClientRect();
+        const endRect = endEl.getBoundingClientRect();
 
-        if (distance === 0) return { x: node.x, y: node.y };
+        const startX = startRect.right - mapRect.left;
+        const startY = startRect.top + startRect.height / 2 - mapRect.top;
+        const endX = endRect.left - mapRect.left;
+        const endY = endRect.top + endRect.height / 2 - mapRect.top;
 
-        return {
-            x: node.x + (dx / distance) * NODE_RADIUS,
-            y: node.y + (dy / distance) * NODE_RADIUS
-        };
-    }
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', startX);
+        line.setAttribute('y1', startY);
+        line.setAttribute('x2', endX);
+        line.setAttribute('y2', endY);
+        line.setAttribute('class', `message-arrow ${arrowType}`);
 
-    function updateGraph() {
-        // Update all nodes
-        const allNodes = [...producers, ...topics, ...consumers];
+        // Add arrowhead marker based on type
+        line.setAttribute('marker-end', `url(#arrowhead-${arrowType})`);
 
-        const nodeSelection = nodeGroup.selectAll(".node")
-            .data(allNodes, d => d.id);
+        svg.appendChild(line);
 
-        // Enter new nodes
-        const nodeEnter = nodeSelection.enter()
-            .append("g")
-            .attr("class", d => `node ${d.type}`)
-            .attr("transform", d => `translate(${d.x},${d.y})`);
-
-        nodeEnter.append("circle")
-            .attr("r", 0)
-            .transition()
-            .duration(500)
-            .attr("r", NODE_RADIUS);
-
-        nodeEnter.append("text")
-            .attr("dy", ".35em")
-            .attr("text-anchor", "middle")
-            .style("font-size", "12px")
-            .style("font-weight", "500")
-            .text(d => d.name);
-
-        // Update existing nodes
-        nodeSelection
-            .transition()
-            .duration(500)
-            .attr("transform", d => `translate(${d.x},${d.y})`);
-
-        // Exit old nodes
-        nodeSelection.exit()
-            .transition()
-            .duration(300)
-            .attr("opacity", 0)
-            .remove();
-    }
-
-    function drawTemporaryArrow(sourceId, targetId, type) {
-        const sourceNode = nodeMap.get(sourceId);
-        const targetNode = nodeMap.get(targetId);
-        if (!sourceNode || !targetNode) return;
-
-        // Blink effect on target node
-        const targetNodeElement = nodeGroup.selectAll('.node')
-            .filter(d => d.id === targetId);
-
-        if (!targetNodeElement.empty()) {
-            targetNodeElement.classed('blink', true);
-            setTimeout(() => targetNodeElement.classed('blink', false), 500);
-        }
-
-        // Calculate connector positions
-        const sourceConnector = getConnectorPosition(sourceNode, targetNode);
-        const targetConnector = getConnectorPosition(targetNode, sourceNode);
-
-        // Draw temporary arrow
-        const arrow = linkGroup.append("line")
-            .attr("class", `message-arrow ${type}`)
-            .attr("marker-end", `url(#arrow-${type})`)
-            .attr("x1", sourceConnector.x)
-            .attr("y1", sourceConnector.y)
-            .attr("x2", targetConnector.x)
-            .attr("y2", targetConnector.y);
-
-        // Draw temporary connectors
-        const connectorGroup = linkGroup.append("g").attr("class", "temp-connectors");
-
-        connectorGroup.append("circle")
-            .attr("class", "connector")
-            .attr("cx", sourceConnector.x)
-            .attr("cy", sourceConnector.y);
-
-        connectorGroup.append("circle")
-            .attr("class", "connector")
-            .attr("cx", targetConnector.x)
-            .attr("cy", targetConnector.y);
-
-        // Remove after animation
         setTimeout(() => {
-            arrow.remove();
-            connectorGroup.remove();
-        }, 1000);
-    }
+            svg.removeChild(line);
+        }, 1000); // Remove after 1 second animation
+    };
 
-    // --- WebSocket event handlers ---
+    // Define arrowhead markers in SVG
+    const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+
+    // Publish arrowhead (green)
+    const markerPublish = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    markerPublish.setAttribute('id', 'arrowhead-publish');
+    markerPublish.setAttribute('viewBox', '0 0 10 10');
+    markerPublish.setAttribute('refX', '8');
+    markerPublish.setAttribute('refY', '5');
+    markerPublish.setAttribute('markerWidth', '6');
+    markerPublish.setAttribute('markerHeight', '6');
+    markerPublish.setAttribute('orient', 'auto-start-reverse');
+    const pathPublish = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathPublish.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    pathPublish.setAttribute('fill', '#28a745');
+    markerPublish.appendChild(pathPublish);
+    defs.appendChild(markerPublish);
+
+    // Consume arrowhead (orange)
+    const markerConsume = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+    markerConsume.setAttribute('id', 'arrowhead-consume');
+    markerConsume.setAttribute('viewBox', '0 0 10 10');
+    markerConsume.setAttribute('refX', '8');
+    markerConsume.setAttribute('refY', '5');
+    markerConsume.setAttribute('markerWidth', '6');
+    markerConsume.setAttribute('markerHeight', '6');
+    markerConsume.setAttribute('orient', 'auto-start-reverse');
+    const pathConsume = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathConsume.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+    pathConsume.setAttribute('fill', '#ffab40');
+    markerConsume.appendChild(pathConsume);
+    defs.appendChild(markerConsume);
+
+    svg.appendChild(defs);
+
 
     socket.on('connect', () => {
         console.log('Connected to activity stream.');
@@ -217,32 +93,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     socket.on('new_message', (data) => {
         console.log('New Message:', data);
-        const producerAdded = addOrUpdateNode(data.producer, 'producer');
-        const topicAdded = addOrUpdateNode(data.topic, 'topic');
-        if (producerAdded || topicAdded) updateGraph();
-        drawTemporaryArrow(data.producer, data.topic, 'publish');
+        const producerId = drawNode(data.producer, 'producer', producersCol);
+        const topicId = drawNode(data.topic, 'topic', topicsCol);
+        drawArrow(producerId, topicId, 'publish');
     });
 
     socket.on('new_consumption', (data) => {
         console.log('New Consumption:', data);
-        const topicAdded = addOrUpdateNode(data.topic, 'topic');
-        const consumerAdded = addOrUpdateNode(data.consumer, 'consumer');
-        if (topicAdded || consumerAdded) updateGraph();
-        drawTemporaryArrow(data.topic, data.consumer, 'consume');
+        const topicId = drawNode(data.topic, 'topic', topicsCol);
+        const consumerId = drawNode(data.consumer, 'consumer', consumersCol);
+        drawArrow(topicId, consumerId);
     });
 
     socket.on('new_client', (data) => {
-        console.log('New Client:', data);
-        if (addOrUpdateNode(data.consumer, 'consumer')) {
-            updateGraph();
-        }
+        // Pre-draw consumer nodes when they connect
+        drawNode(data.consumer, 'consumer', consumersCol);
     });
 
     socket.on('consumed', (data) => {
         console.log('Consumed:', data);
-        const topicAdded = addOrUpdateNode(data.topic, 'topic');
-        const consumerAdded = addOrUpdateNode(data.consumer, 'consumer');
-        if (topicAdded || consumerAdded) updateGraph();
-        drawTemporaryArrow(data.topic, data.consumer, 'consume');
+        const topicId = drawNode(data.topic, 'topic', topicsCol);
+        const consumerId = drawNode(data.consumer, 'consumer', consumersCol);
+        drawArrow(topicId, consumerId, 'consume');
     });
 });
