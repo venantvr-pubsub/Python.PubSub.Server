@@ -279,7 +279,13 @@ def publish() -> Tuple[flask.Response, int]:
 
     logger.info(f"Publishing message {msg_id} to topic {topic} by {prod}")
     broker.save_message(topic=topic, message_id=msg_id, message=msg, producer=prod)
+
+    # Emit to specific topic subscribers
     socketio.emit("message", data, to=topic)
+
+    # Also emit to wildcard subscribers (those who subscribed to "*")
+    socketio.emit("message", data, to="__all__")
+
     return jsonify({"status": "ok"}), 200
 
 
@@ -350,8 +356,14 @@ def handle_subscribe(data: Dict[str, Any]) -> None:
 
     logger.info(f"Subscribing {consumer} (SID: {sid}) to topics: {topics}")
     for topic in topics:
-        join_room(topic)
-        broker.register_subscription(sid, consumer, topic)
+        # Support for wildcard "*" to subscribe to ALL topics
+        if topic == "*":
+            join_room("__all__")
+            broker.register_subscription(sid, consumer, "*")
+            logger.info(f"{consumer} subscribed to ALL topics via wildcard '*'")
+        else:
+            join_room(topic)
+            broker.register_subscription(sid, consumer, topic)
 
 
 @socketio.on("consumed")
