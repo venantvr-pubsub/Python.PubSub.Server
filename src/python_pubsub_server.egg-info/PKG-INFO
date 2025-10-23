@@ -257,7 +257,7 @@ Python.PubSub.Server/
 │       ├── pubsub_ws.py         # Implémentation du serveur
 │       ├── migrations/          # Scripts de migration (inclus dans le package)
 │       │   └── 001_...sql
-│       ├── *.html               # Interfaces web (control-panel, network-graph, etc.)
+│       ├── *.html               # Interfaces web (control-panel, activity-map, circular-graph, etc.)
 │       └── static/              # Fichiers statiques (CSS, JS)
 ├── migrations/                  # Copie des migrations (pour référence)
 │   └── 001_...sql

@@ -10,9 +10,10 @@ import flask
 from dotenv import load_dotenv
 from flask import Flask, jsonify, redirect, request, send_from_directory
 from flask_socketio import SocketIO, join_room
-from python_sqlite_async import AsyncSQLite
 
-# Import de votre nouvelle librairie
+# Import de nos modules de batch writing optimisés
+from python_pubsub_server.async_sqlite_batch import AsyncSQLiteBatch
+from python_pubsub_server.batch_writer import BatchWriteBuffer
 
 # 1. Configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(threadName)s - %(message)s')
@@ -27,8 +28,14 @@ CLEANUP_INTERVAL = int(os.getenv("CLEANUP_INTERVAL", "30"))  # Secondes entre ch
 CLEANUP_MAX_LOAD_THRESHOLD = float(os.getenv("CLEANUP_MAX_LOAD_THRESHOLD", "10.0"))  # Requêtes/seconde max pour autoriser le nettoyage
 CLEANUP_LOAD_WINDOW = int(os.getenv("CLEANUP_LOAD_WINDOW", "60"))  # Fenêtre d'observation de la charge en secondes
 
-# 2. Initialisation de la base de données via la librairie
-db = AsyncSQLite(DB_FILE_NAME)
+# Configuration du batch writing (optimisation haute fréquence)
+BATCH_WRITE_ENABLED = os.getenv("BATCH_WRITE_ENABLED", "true").lower() == "true"
+BATCH_SIZE = int(os.getenv("BATCH_SIZE", "100"))  # Nombre d'opérations avant flush
+BATCH_FLUSH_INTERVAL_MS = int(os.getenv("BATCH_FLUSH_INTERVAL_MS", "50"))  # Latence max en ms
+BATCH_MAX_BUFFER_SIZE = int(os.getenv("BATCH_MAX_BUFFER_SIZE", "10000"))  # Taille max du buffer
+
+# 2. Initialisation de la base de données via la librairie avec support batch
+db = AsyncSQLiteBatch(DB_FILE_NAME)
 
 
 # 3. Surveillance de la charge
@@ -84,10 +91,15 @@ class Broker:
     """
     Sert d'interface entre la logique de l'application et la librairie
     de base de données asynchrone.
+
+    Supporte maintenant le batch writing pour des performances optimales
+    dans les scénarios haute fréquence.
     """
 
-    def __init__(self, db_manager: AsyncSQLite, max_rows: int = 5000, load_monitor: Optional[LoadMonitor] = None,
-                 cleanup_interval: int = 30, cleanup_threshold: float = 10.0) -> None:
+    def __init__(self, db_manager: AsyncSQLiteBatch, max_rows: int = 5000, load_monitor: Optional[LoadMonitor] = None,
+                 cleanup_interval: int = 30, cleanup_threshold: float = 10.0,
+                 batch_enabled: bool = True, batch_size: int = 100,
+                 flush_interval_ms: int = 50, max_buffer_size: int = 10000) -> None:
         self.db = db_manager
         self.max_rows = max_rows
         self.load_monitor = load_monitor
@@ -95,6 +107,28 @@ class Broker:
         self.cleanup_threshold = cleanup_threshold
         self.cleanup_thread: Optional[threading.Thread] = None
         self.cleanup_running = False
+
+        # Batch writing configuration
+        self.batch_enabled = batch_enabled
+        self.batch_writer: Optional[BatchWriteBuffer] = None
+
+        if self.batch_enabled:
+            logger.info(f"Initializing batch writer: size={batch_size}, interval={flush_interval_ms}ms, max_buffer={max_buffer_size}")
+            self.batch_writer = BatchWriteBuffer(
+                executor=self._execute_batch_write,
+                batch_size=batch_size,
+                flush_interval_ms=flush_interval_ms,
+                max_buffer_size=max_buffer_size
+            )
+        else:
+            logger.info("Batch writing is DISABLED - using sequential writes")
+
+    def _execute_batch_write(self, sql: str, params_list: List[Tuple[Any, ...]]) -> None:
+        """
+        Executor function for BatchWriteBuffer.
+        Executes a batch of write operations using the enhanced AsyncSQLiteBatch.
+        """
+        self.db.execute_write_batch(sql, params_list)
 
     def cleanup_old_rows(self, table_name: str, order_column: str) -> None:
         """
@@ -151,7 +185,7 @@ class Broker:
         logger.info("Background cleanup thread stopped")
 
     def start_cleanup_thread(self) -> None:
-        """Démarre le thread de nettoyage en arrière-plan."""
+        """Démarre le thread de nettoyage en arrière-plan et le batch writer si activé."""
         if self.cleanup_thread is not None and self.cleanup_thread.is_alive():
             logger.warning("Cleanup thread is already running")
             return
@@ -161,8 +195,13 @@ class Broker:
         self.cleanup_thread.start()
         logger.info("Background cleanup thread started")
 
+        # Start batch writer if enabled
+        if self.batch_enabled and self.batch_writer:
+            self.batch_writer.start()
+            logger.info("Batch writer started")
+
     def stop_cleanup_thread(self) -> None:
-        """Arrête le thread de nettoyage en arrière-plan."""
+        """Arrête le thread de nettoyage en arrière-plan et le batch writer."""
         if self.cleanup_thread is None or not self.cleanup_thread.is_alive():
             logger.warning("Cleanup thread is not running")
             return
@@ -173,6 +212,12 @@ class Broker:
             self.cleanup_thread.join(timeout=5)
         logger.info("Background cleanup thread stopped")
 
+        # Stop batch writer if enabled
+        if self.batch_enabled and self.batch_writer:
+            logger.info("Stopping batch writer and flushing pending writes...")
+            self.batch_writer.stop()
+            logger.info("Batch writer stopped")
+
     def register_subscription(self, sid: str, consumer: str, topic: str) -> None:
         if not all([sid, consumer, topic]):
             logger.warning("register_subscription: Paramètres requis manquants")
@@ -181,10 +226,17 @@ class Broker:
         if self.load_monitor:
             self.load_monitor.record_request()
 
-        sql = "INSERT OR REPLACE INTO subscriptions (sid, consumer, topic, connected_at) VALUES (?, ?, ?, ?)"
-        params = (sid, consumer, topic, time.time())
-        self.db.execute_write(sql, params)
-        socketio.emit("new_client", {"consumer": consumer, "topic": topic, "connected_at": time.time()})
+        timestamp = time.time()
+
+        # Use batch writer if enabled, otherwise fall back to sequential write
+        if self.batch_enabled and self.batch_writer:
+            self.batch_writer.add_subscription(sid, consumer, topic, timestamp)
+        else:
+            sql = "INSERT OR REPLACE INTO subscriptions (sid, consumer, topic, connected_at) VALUES (?, ?, ?, ?)"
+            params = (sid, consumer, topic, timestamp)
+            self.db.execute_write(sql, params)
+
+        socketio.emit("new_client", {"consumer": consumer, "topic": topic, "connected_at": timestamp})
 
     def unregister_client(self, sid: str) -> None:
         client_info = self.get_client_by_sid(sid)
@@ -202,21 +254,35 @@ class Broker:
         if self.load_monitor:
             self.load_monitor.record_request()
 
-        sql = "INSERT INTO messages (topic, message_id, message, producer, timestamp) VALUES (?, ?, ?, ?, ?)"
-        message_json = json.dumps(message) if not isinstance(message, str) else message
-        params = (topic, message_id, message_json, producer, time.time())
-        self.db.execute_write(sql, params)
-        socketio.emit("new_message", {"topic": topic, "message_id": message_id, "message": message, "producer": producer, "timestamp": time.time()})
+        timestamp = time.time()
+
+        # Use batch writer if enabled, otherwise fall back to sequential write
+        if self.batch_enabled and self.batch_writer:
+            self.batch_writer.add_message(topic, message_id, message, producer, timestamp)
+        else:
+            sql = "INSERT INTO messages (topic, message_id, message, producer, timestamp) VALUES (?, ?, ?, ?, ?)"
+            message_json = json.dumps(message) if not isinstance(message, str) else message
+            params = (topic, message_id, message_json, producer, timestamp)
+            self.db.execute_write(sql, params)
+
+        socketio.emit("new_message", {"topic": topic, "message_id": message_id, "message": message, "producer": producer, "timestamp": timestamp})
 
     def save_consumption(self, consumer: str, topic: str, message_id: str, message: Any) -> None:
         if self.load_monitor:
             self.load_monitor.record_request()
 
-        sql = "INSERT INTO consumptions (consumer, topic, message_id, message, timestamp) VALUES (?, ?, ?, ?, ?)"
-        message_json = json.dumps(message) if not isinstance(message, str) else message
-        params = (consumer, topic, message_id, message_json, time.time())
-        self.db.execute_write(sql, params)
-        socketio.emit("new_consumption", {"consumer": consumer, "topic": topic, "message_id": message_id, "message": message, "timestamp": time.time()})
+        timestamp = time.time()
+
+        # Use batch writer if enabled, otherwise fall back to sequential write
+        if self.batch_enabled and self.batch_writer:
+            self.batch_writer.add_consumption(consumer, topic, message_id, message, timestamp)
+        else:
+            sql = "INSERT INTO consumptions (consumer, topic, message_id, message, timestamp) VALUES (?, ?, ?, ?, ?)"
+            message_json = json.dumps(message) if not isinstance(message, str) else message
+            params = (consumer, topic, message_id, message_json, timestamp)
+            self.db.execute_write(sql, params)
+
+        socketio.emit("new_consumption", {"consumer": consumer, "topic": topic, "message_id": message_id, "message": message, "timestamp": timestamp})
 
     def get_client_by_sid(self, sid: str) -> Optional[Tuple[str, str]]:
         sql = "SELECT consumer, topic FROM subscriptions WHERE sid = ?"
@@ -263,8 +329,17 @@ app = Flask(__name__)
 app.config["SECRET_KEY"] = "secret!"
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 load_monitor = LoadMonitor(window_seconds=CLEANUP_LOAD_WINDOW)
-broker = Broker(db, max_rows=MAX_ROWS_PER_TABLE, load_monitor=load_monitor,
-                cleanup_interval=CLEANUP_INTERVAL, cleanup_threshold=CLEANUP_MAX_LOAD_THRESHOLD)
+broker = Broker(
+    db,
+    max_rows=MAX_ROWS_PER_TABLE,
+    load_monitor=load_monitor,
+    cleanup_interval=CLEANUP_INTERVAL,
+    cleanup_threshold=CLEANUP_MAX_LOAD_THRESHOLD,
+    batch_enabled=BATCH_WRITE_ENABLED,
+    batch_size=BATCH_SIZE,
+    flush_interval_ms=BATCH_FLUSH_INTERVAL_MS,
+    max_buffer_size=BATCH_MAX_BUFFER_SIZE
+)
 
 
 # 6. Routes Flask et Handlers SocketIO
@@ -318,6 +393,55 @@ def health_check() -> Tuple[flask.Response, int]:
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return jsonify({"status": "unhealthy", "error": str(e)}), 503
+
+
+@app.route("/metrics/batch")
+def batch_metrics() -> flask.Response:
+    """
+    Endpoint exposant les métriques du batch writer.
+    Retourne des statistiques sur les performances du batching.
+    """
+    if not broker.batch_enabled or not broker.batch_writer:
+        return jsonify({
+            "batch_enabled": False,
+            "message": "Batch writing is disabled"
+        })
+
+    metrics = broker.batch_writer.get_metrics()
+    buffer_sizes = broker.batch_writer.get_buffer_sizes()
+    queue_size = broker.db.get_queue_size()
+
+    return jsonify({
+        "batch_enabled": True,
+        "metrics": metrics,
+        "buffer_sizes": buffer_sizes,
+        "db_queue_size": queue_size,
+        "config": {
+            "batch_size": broker.batch_writer.batch_size,
+            "flush_interval_ms": int(broker.batch_writer.flush_interval * 1000),
+            "max_buffer_size": broker.batch_writer.max_buffer_size
+        }
+    })
+
+
+@app.route("/metrics/load")
+def load_metrics() -> flask.Response:
+    """
+    Endpoint exposant les métriques de charge du serveur.
+    """
+    if not broker.load_monitor:
+        return jsonify({
+            "load_monitoring_enabled": False,
+            "message": "Load monitoring is disabled"
+        })
+
+    return jsonify({
+        "load_monitoring_enabled": True,
+        "requests_per_second": round(broker.load_monitor.get_requests_per_second(), 2),
+        "is_low_load": broker.load_monitor.is_low_load(broker.cleanup_threshold),
+        "threshold": broker.cleanup_threshold,
+        "window_seconds": broker.load_monitor.window_seconds
+    })
 
 
 @app.route("/")
