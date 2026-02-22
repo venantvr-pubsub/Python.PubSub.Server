@@ -23,29 +23,20 @@ Cette optimisation vise à éliminer les goulots d'étranglement liés aux écri
 
 ### Architecture Batch Writing
 
-```
-┌─────────────────┐
-│  Application    │
-│  (save_message) │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────────┐
-│  BatchWriteBuffer   │  ◄─── Buffer intelligent avec flush:
-│  ┌───────────────┐  │       - Par taille (N ops)
-│  │ Messages      │  │       - Par temps (T ms)
-│  │ Consumptions  │  │       - Par shutdown
-│  │ Subscriptions │  │
-│  └───────────────┘  │
-└────────┬────────────┘
-         │ Flush (batch de 100)
-         ▼
-┌─────────────────────┐
-│ AsyncSQLiteBatch    │  ◄─── Transaction unique:
-│ ┌─────────────────┐ │       BEGIN TRANSACTION;
-│ │ executemany()   │ │       INSERT ... (x100)
-│ └─────────────────┘ │       COMMIT;
-└─────────────────────┘
+```mermaid
+graph TD
+    A["Application (save_message)"] --> B["BatchWriteBuffer"]
+    B --> B1["Messages"]
+    B --> B2["Consumptions"]
+    B --> B3["Subscriptions"]
+    B -- "Flush (batch de 100)" --> C["AsyncSQLiteBatch"]
+    C --> C1["executemany()"]
+
+    B -. "Buffer intelligent avec flush:<br/>- Par taille (N ops)<br/>- Par temps (T ms)<br/>- Par shutdown" .- BNote[ ]
+    C -. "Transaction unique:<br/>BEGIN TRANSACTION;<br/>INSERT ... (x100)<br/>COMMIT;" .- CNote[ ]
+
+    style BNote fill:none,stroke:none
+    style CNote fill:none,stroke:none
 ```
 
 ### Composants Créés
@@ -236,3 +227,4 @@ Le système repasse automatiquement aux écritures séquentielles traditionnelle
 **Auteur**: Claude (Expert Architect - Trading Systems & EDA)
 **Date**: 2025-10-23
 **Version**: 1.0
+
