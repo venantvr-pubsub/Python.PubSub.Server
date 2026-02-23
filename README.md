@@ -244,3 +244,7 @@ Ce projet est sous licence MIT - voir le fichier `LICENSE` pour plus de détails
 - Auteur : venantvr
 - Email : venantvr@gmail.com
 - GitHub : [@venantvr](https://github.com/venantvr)
+
+## Stack
+
+[![Stack](https://skillicons.dev/icons?i=py,flask,sqlite,js,git&theme=dark)](https://skillicons.dev)
